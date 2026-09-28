@@ -17,7 +17,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force -Path third_party/pdfium | Out-Null
-          $url = 'https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F152.0.7961.0/pdfium-win-x64.tgz'
+          $url = 'https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F8066/pdfium-win-x64.tgz'
           Invoke-WebRequest -Uri $url -OutFile third_party/pdfium/pdfium.tgz
           tar -xzf third_party/pdfium/pdfium.tgz -C third_party/pdfium
           Remove-Item third_party/pdfium/pdfium.tgz
@@ -39,7 +39,9 @@ jobs:
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
           Copy-Item build/Release/PDFDarkReader.exe artifacts/PDFDarkReader.exe
-          Copy-Item third_party/pdfium/bin/pdfium.dll artifacts/pdfium.dll
+          $dll = Get-ChildItem -Path third_party/pdfium -Filter pdfium.dll -Recurse | Select-Object -First 1
+          if (-not $dll) { throw 'pdfium.dll not found after extraction' }
+          Copy-Item $dll.FullName artifacts/pdfium.dll
 
       - name: Upload EXE
         uses: actions/upload-artifact@v4
