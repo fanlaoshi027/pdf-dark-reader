@@ -23,10 +23,11 @@ add_executable(PDFDarkReader WIN32
     src/InvertSettings.cpp
     src/PdfDocument.h
     src/PdfDocument.cpp
+    src/LayerSystem.h
+    src/LayerSystem.cpp
 )
 target_include_directories(PDFDarkReader PRIVATE "${PDFIUM_INCLUDE_DIR}")
 target_compile_definitions(PDFDarkReader PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
-# Source files are UTF-8 and contain Chinese UI strings.
 target_compile_options(PDFDarkReader PRIVATE /utf-8)
 target_link_libraries(PDFDarkReader PRIVATE "${PDFIUM_LIBRARY}" user32 gdi32 shell32 comdlg32)
 add_custom_command(TARGET PDFDarkReader POST_BUILD
