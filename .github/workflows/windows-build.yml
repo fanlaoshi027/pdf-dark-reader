@@ -12,8 +12,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Download PDFium
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path third_party/pdfium | Out-Null
+          Invoke-WebRequest -Uri "https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-win-x64.tgz" -OutFile third_party/pdfium/pdfium.tgz
+          tar -xzf third_party/pdfium/pdfium.tgz -C third_party/pdfium
+          Remove-Item third_party/pdfium/pdfium.tgz
+
       - name: Configure
-        run: cmake -S . -B build -A x64
+        run: cmake -S . -B build -A x64 -DPDFIUM_DIR="$pwd/third_party/pdfium"
 
       - name: Build
         run: cmake --build build --config Release
@@ -23,9 +31,10 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
           Copy-Item build/Release/PDFDarkReader.exe artifacts/PDFDarkReader.exe
+          Copy-Item build/Release/pdfium.dll artifacts/pdfium.dll
 
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
           name: PDFDarkReader-Windows-x64
-          path: artifacts/PDFDarkReader.exe
+          path: artifacts/
