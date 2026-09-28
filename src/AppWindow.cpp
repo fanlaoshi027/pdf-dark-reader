@@ -19,28 +19,38 @@ enum : int {
     ID_COLOR_BLUE = 1103, ID_COLOR_CUSTOM = 1104
 };
 
+// This deliberately mirrors the website player filter:
+//     filter: invert(90%) hue-rotate(180deg)
+// The important point is that the filter is applied to the final rendered
+// page pixels, not to PDF drawing commands. That keeps anti-aliased text,
+// scanned pages, vector pages and images in one consistent pipeline.
 void InvertBgra(std::vector<std::uint8_t>& pixels, const InvertSettings& s) {
     if (!s.enabled) return;
-    const float strength = std::clamp(s.strength, 0.0f, 1.0f);
-    const float targetR = static_cast<float>(s.backgroundR) * strength;
-    const float targetG = static_cast<float>(s.backgroundG) * strength;
-    const float targetB = static_cast<float>(s.backgroundB) * strength;
-    constexpr float foreground = 235.0f;
 
+    const float amount = std::clamp(s.strength, 0.0f, 1.0f);
+
+    // CSS invert(amount), followed by hue-rotate(180deg), represented as
+    // one RGB matrix. The hue-rotate matrix is applied after interpolation
+    // toward the inverted value, exactly like the browser filter pipeline.
     for (size_t i = 0; i + 3 < pixels.size(); i += 4) {
-        const float b0 = static_cast<float>(pixels[i]);
-        const float g0 = static_cast<float>(pixels[i + 1]);
-        const float r0 = static_cast<float>(pixels[i + 2]);
-        const float maxC = (std::max)({r0, g0, b0});
-        const float minC = (std::min)({r0, g0, b0});
-        if ((maxC - minC) > 18.0f) continue;
+        const float b = pixels[i] / 255.0f;
+        const float g = pixels[i + 1] / 255.0f;
+        const float r = pixels[i + 2] / 255.0f;
 
-        const float invR = 255.0f - r0;
-        const float invG = 255.0f - g0;
-        const float invB = 255.0f - b0;
-        pixels[i] = static_cast<std::uint8_t>(std::clamp(targetB + (invB / 255.0f) * (foreground - targetB), 0.0f, 255.0f));
-        pixels[i + 1] = static_cast<std::uint8_t>(std::clamp(targetG + (invG / 255.0f) * (foreground - targetG), 0.0f, 255.0f));
-        pixels[i + 2] = static_cast<std::uint8_t>(std::clamp(targetR + (invR / 255.0f) * (foreground - targetR), 0.0f, 255.0f));
+        // invert(amount): amount=0 leaves the channel unchanged;
+        // amount=1 produces 1-channel.
+        const float ir = r + (1.0f - 2.0f * r) * amount;
+        const float ig = g + (1.0f - 2.0f * g) * amount;
+        const float ib = b + (1.0f - 2.0f * b) * amount;
+
+        // hue-rotate(180deg), using the CSS Filter Effects RGB matrix.
+        const float orr = -0.574f * ir + 1.430f * ig + 0.144f * ib;
+        const float org =  0.426f * ir + 0.430f * ig + 0.144f * ib;
+        const float orb =  0.426f * ir + 1.430f * ig - 0.856f * ib;
+
+        pixels[i]     = static_cast<std::uint8_t>(std::lround(std::clamp(orb, 0.0f, 1.0f) * 255.0f));
+        pixels[i + 1] = static_cast<std::uint8_t>(std::lround(std::clamp(org, 0.0f, 1.0f) * 255.0f));
+        pixels[i + 2] = static_cast<std::uint8_t>(std::lround(std::clamp(orr, 0.0f, 1.0f) * 255.0f));
     }
 }
 
@@ -54,6 +64,7 @@ const wchar_t* BackgroundName(const InvertSettings& s) {
 
 bool AppWindow::Create(HINSTANCE instance) {
     instance_ = instance;
+    // 90% is intentionally the same as the website's invert(90%).
     invertSettings_.strength = 0.90f;
     invertSettings_.backgroundR = 26;
     invertSettings_.backgroundG = 26;
@@ -162,23 +173,39 @@ LRESULT AppWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
     case WM_KEYDOWN:
         if(wParam=='O' && (GetKeyState(VK_CONTROL)&0x8000)){OpenPdf();return 0;}
         if(wParam=='I' && pdf_.IsOpen()){SetInvert(!invert_);return 0;}
-        if(wParam==VK_LEFT){GoPage(-1);return 0;} if(wParam==VK_RIGHT){GoPage(1);return 0;}
-        if(wParam==VK_UP){ScrollBy(-80);return 0;} if(wParam==VK_DOWN){ScrollBy(80);return 0;}
-        if(wParam==VK_PRIOR){ScrollBy(-400);return 0;} if(wParam==VK_NEXT){ScrollBy(400);return 0;}
+        if(wParam==VK_LEFT){GoPage(-1);return 0;}
+        if(wParam==VK_RIGHT){GoPage(1);return 0;}
+        if(wParam==VK_UP){ScrollBy(-80);return 0;}
+        if(wParam==VK_DOWN){ScrollBy(80);return 0;}
+        if(wParam==VK_PRIOR){ScrollBy(-400);return 0;}
+        if(wParam==VK_NEXT){ScrollBy(400);return 0;}
         break;
-    case WM_MOUSEWHEEL: ScrollBy(-(GET_WHEEL_DELTA_WPARAM(wParam)/WHEEL_DELTA)*90); return 0;
+    case WM_MOUSEWHEEL:
+        ScrollBy(-(GET_WHEEL_DELTA_WPARAM(wParam)/WHEEL_DELTA)*90); return 0;
     case WM_VSCROLL:
         switch(LOWORD(wParam)) {
-        case SB_LINEUP: ScrollBy(-60); break; case SB_LINEDOWN: ScrollBy(60); break;
-        case SB_PAGEUP: ScrollBy(-400); break; case SB_PAGEDOWN: ScrollBy(400); break;
-        case SB_THUMBPOSITION: case SB_THUMBTRACK: { SCROLLINFO si{}; si.cbSize=sizeof(si); si.fMask=SIF_TRACKPOS; GetScrollInfo(hwnd_,SB_VERT,&si); scrollY_=si.nTrackPos; InvalidateRect(hwnd_,nullptr,FALSE); break; }
+        case SB_LINEUP: ScrollBy(-60); break;
+        case SB_LINEDOWN: ScrollBy(60); break;
+        case SB_PAGEUP: ScrollBy(-400); break;
+        case SB_PAGEDOWN: ScrollBy(400); break;
+        case SB_THUMBPOSITION:
+        case SB_THUMBTRACK: {
+            SCROLLINFO si{}; si.cbSize=sizeof(si); si.fMask=SIF_TRACKPOS;
+            GetScrollInfo(hwnd_,SB_VERT,&si); scrollY_=si.nTrackPos;
+            InvalidateRect(hwnd_,nullptr,FALSE); break;
+        }
         default: break;
         }
         return 0;
     case WM_SIZE:
-        LayoutToolbar(static_cast<int>(LOWORD(lParam))); if(pdf_.IsOpen()) RenderCurrentPage(); return 0;
-    case WM_PAINT: { PAINTSTRUCT ps{}; HDC hdc=BeginPaint(hwnd_,&ps); Paint(hdc); EndPaint(hwnd_,&ps); return 0; }
-    case WM_DESTROY: PostQuitMessage(0); return 0;
+        LayoutToolbar(static_cast<int>(LOWORD(lParam)));
+        if(pdf_.IsOpen()) RenderCurrentPage();
+        return 0;
+    case WM_PAINT: {
+        PAINTSTRUCT ps{}; HDC hdc=BeginPaint(hwnd_,&ps); Paint(hdc); EndPaint(hwnd_,&ps); return 0;
+    }
+    case WM_DESTROY:
+        PostQuitMessage(0); return 0;
     }
     return DefWindowProcW(hwnd_,message,wParam,lParam);
 }
@@ -186,7 +213,8 @@ LRESULT AppWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
 void AppWindow::OpenPdf() {
     OPENFILENAMEW ofn{}; wchar_t file[MAX_PATH]{};
     ofn.lStructSize=sizeof(ofn); ofn.hwndOwner=hwnd_; ofn.lpstrFile=file; ofn.nMaxFile=MAX_PATH;
-    ofn.lpstrFilter=L"PDF files (*.pdf)\0*.pdf\0All files (*.*)\0*.*\0"; ofn.Flags=OFN_FILEMUSTEXIST|OFN_PATHMUSTEXIST;
+    ofn.lpstrFilter=L"PDF files (*.pdf)\0*.pdf\0All files (*.*)\0*.*\0";
+    ofn.Flags=OFN_FILEMUSTEXIST|OFN_PATHMUSTEXIST;
     if(GetOpenFileNameW(&ofn)) {
         if(pdf_.Open(file)){pageIndex_=0;invert_=false;zoom_=1.0;scrollY_=0;FitPage();}
         else MessageBoxW(hwnd_,L"无法打开这个 PDF 文件。",L"PDF Dark Reader",MB_ICONERROR);
@@ -201,15 +229,20 @@ void AppWindow::RenderCurrentPage() {
     float pageW=1,pageH=1; if(!pdf_.PageSize(pageIndex_,pageW,pageH)) return;
     const double fitScale=std::min(static_cast<double>(availableW)/pageW,static_cast<double>(availableH)/pageH);
     const double scale=fitScale*zoom_;
-    renderWidth_=(std::max)(1,static_cast<int>(pageW*scale)); renderHeight_=(std::max)(1,static_cast<int>(pageH*scale));
+    renderWidth_=(std::max)(1,static_cast<int>(pageW*scale));
+    renderHeight_=(std::max)(1,static_cast<int>(pageH*scale));
     if(!pdf_.RenderPage(pageIndex_,renderWidth_,renderHeight_,pixels_)) return;
     ApplyInvert();
     const int viewportH=(std::max)(1,static_cast<int>(rc.bottom)-kToolbarHeight);
     const int maxScroll=(std::max)(0,renderHeight_-viewportH+20);
-    scrollY_=std::clamp(scrollY_,0,maxScroll); UpdateScrollBar(); UpdateToolbarText(); InvalidateRect(hwnd_,nullptr,FALSE);
+    scrollY_=std::clamp(scrollY_,0,maxScroll);
+    UpdateScrollBar(); UpdateToolbarText(); InvalidateRect(hwnd_,nullptr,FALSE);
 }
 
-void AppWindow::ApplyInvert(){invertSettings_.enabled=invert_;InvertBgra(pixels_,invertSettings_);}
+void AppWindow::ApplyInvert(){
+    invertSettings_.enabled=invert_;
+    InvertBgra(pixels_,invertSettings_);
+}
 
 void AppWindow::ChangeZoom(double factor) {
     if(!pdf_.IsOpen()) return;
@@ -228,27 +261,38 @@ void AppWindow::SetInvert(bool enabled){invert_=enabled;if(pdf_.IsOpen())RenderC
 
 void AppWindow::GoPage(int delta){
     if(!pdf_.IsOpen()) return; const int next=pageIndex_+delta;
-    if(next<0||next>=pdf_.PageCount()) return; pageIndex_=next;scrollY_=0;RenderCurrentPage();
+    if(next<0||next>=pdf_.PageCount()) return;
+    pageIndex_=next;scrollY_=0;RenderCurrentPage();
 }
 
 void AppWindow::ScrollBy(int delta){
     if(!pdf_.IsOpen()) return;
-    RECT rc{};GetClientRect(hwnd_,&rc);const int viewportH=(std::max)(1,static_cast<int>(rc.bottom)-kToolbarHeight);
+    RECT rc{};GetClientRect(hwnd_,&rc);
+    const int viewportH=(std::max)(1,static_cast<int>(rc.bottom)-kToolbarHeight);
     const int maxScroll=(std::max)(0,renderHeight_-viewportH+20);
-    if(maxScroll>0){const int old=scrollY_;scrollY_=std::clamp(scrollY_+delta,0,maxScroll);if(old!=scrollY_){UpdateScrollBar();InvalidateRect(hwnd_,nullptr,FALSE);}return;}
+    if(maxScroll>0){
+        const int old=scrollY_;scrollY_=std::clamp(scrollY_+delta,0,maxScroll);
+        if(old!=scrollY_){UpdateScrollBar();InvalidateRect(hwnd_,nullptr,FALSE);}return;
+    }
     if(delta>0)GoPage(-1);else if(delta<0)GoPage(1);
 }
 
 void AppWindow::UpdateScrollBar(){
-    RECT rc{};GetClientRect(hwnd_,&rc);const int viewportH=(std::max)(1,static_cast<int>(rc.bottom)-kToolbarHeight);
+    RECT rc{};GetClientRect(hwnd_,&rc);
+    const int viewportH=(std::max)(1,static_cast<int>(rc.bottom)-kToolbarHeight);
     const int maxScroll=(std::max)(0,renderHeight_-viewportH+20);
-    SCROLLINFO si{};si.cbSize=sizeof(si);si.fMask=SIF_RANGE|SIF_PAGE|SIF_POS;si.nMin=0;si.nMax=maxScroll;si.nPage=static_cast<UINT>(viewportH);si.nPos=std::clamp(scrollY_,0,maxScroll);SetScrollInfo(hwnd_,SB_VERT,&si,TRUE);
+    SCROLLINFO si{};si.cbSize=sizeof(si);si.fMask=SIF_RANGE|SIF_PAGE|SIF_POS;
+    si.nMin=0;si.nMax=maxScroll;si.nPage=static_cast<UINT>(viewportH);si.nPos=std::clamp(scrollY_,0,maxScroll);
+    SetScrollInfo(hwnd_,SB_VERT,&si,TRUE);
 }
 
 void AppWindow::ChooseBackground(){
     POINT p{};GetCursorPos(&p);HMENU menu=CreatePopupMenu();
-    AppendMenuW(menu,MF_STRING,ID_COLOR_BLACK,L"深黑");AppendMenuW(menu,MF_STRING,ID_COLOR_CHARCOAL,L"炭黑");AppendMenuW(menu,MF_STRING,ID_COLOR_BLUE,L"深蓝");
-    AppendMenuW(menu,MF_SEPARATOR,0,nullptr);AppendMenuW(menu,MF_STRING,ID_COLOR_CUSTOM,L"自定义颜色…");
+    AppendMenuW(menu,MF_STRING,ID_COLOR_BLACK,L"深黑");
+    AppendMenuW(menu,MF_STRING,ID_COLOR_CHARCOAL,L"炭黑");
+    AppendMenuW(menu,MF_STRING,ID_COLOR_BLUE,L"深蓝");
+    AppendMenuW(menu,MF_SEPARATOR,0,nullptr);
+    AppendMenuW(menu,MF_STRING,ID_COLOR_CUSTOM,L"自定义颜色…");
     TrackPopupMenu(menu,TPM_RIGHTBUTTON|TPM_TOPALIGN,p.x,p.y,0,hwnd_,nullptr);DestroyMenu(menu);
 }
 
@@ -256,14 +300,21 @@ void AppWindow::Paint(HDC hdc){
     RECT rc{};GetClientRect(hwnd_,&rc);
     const COLORREF bg=invert_?RGB(invertSettings_.backgroundR,invertSettings_.backgroundG,invertSettings_.backgroundB):RGB(235,235,235);
     HBRUSH brush=CreateSolidBrush(bg);FillRect(hdc,&rc,brush);DeleteObject(brush);
-    HBRUSH toolbarBrush=CreateSolidBrush(invert_?RGB(32,32,32):RGB(248,248,248));RECT toolbarRect{0,0,rc.right,kToolbarHeight};FillRect(hdc,&toolbarRect,toolbarBrush);DeleteObject(toolbarBrush);
+    HBRUSH toolbarBrush=CreateSolidBrush(invert_?RGB(32,32,32):RGB(248,248,248));
+    RECT toolbarRect{0,0,rc.right,kToolbarHeight};FillRect(hdc,&toolbarRect,toolbarBrush);DeleteObject(toolbarBrush);
     if(!pdf_.IsOpen()||pixels_.empty()){
-        SetBkMode(hdc,TRANSPARENT);SetTextColor(hdc,invert_?RGB(225,225,225):RGB(70,70,70));RECT body=rc;body.top=kToolbarHeight;DrawTextW(hdc,L"点击“打开”选择 PDF",-1,&body,DT_CENTER|DT_VCENTER|DT_SINGLELINE);return;
+        SetBkMode(hdc,TRANSPARENT);SetTextColor(hdc,invert_?RGB(225,225,225):RGB(70,70,70));
+        RECT body=rc;body.top=kToolbarHeight;
+        DrawTextW(hdc,L"点击“打开”选择 PDF",-1,&body,DT_CENTER|DT_VCENTER|DT_SINGLELINE);return;
     }
-    const int viewportTop=kToolbarHeight;const int viewportBottom=static_cast<int>(rc.bottom);const int availableW=static_cast<int>(rc.right)-20;
-    const int x=(std::max)(10,(availableW-renderWidth_)/2);const int y=viewportTop+10-scrollY_;
+    const int viewportTop=kToolbarHeight;const int viewportBottom=static_cast<int>(rc.bottom);
+    const int availableW=static_cast<int>(rc.right)-20;
+    const int x=(std::max)(10,(availableW-renderWidth_)/2);
+    const int y=viewportTop+10-scrollY_;
     if(y<viewportBottom&&y+renderHeight_>viewportTop){
-        BITMAPINFO bmi{};bmi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);bmi.bmiHeader.biWidth=renderWidth_;bmi.bmiHeader.biHeight=-renderHeight_;bmi.bmiHeader.biPlanes=1;bmi.bmiHeader.biBitCount=32;bmi.bmiHeader.biCompression=BI_RGB;
+        BITMAPINFO bmi{};bmi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth=renderWidth_;bmi.bmiHeader.biHeight=-renderHeight_;
+        bmi.bmiHeader.biPlanes=1;bmi.bmiHeader.biBitCount=32;bmi.bmiHeader.biCompression=BI_RGB;
         StretchDIBits(hdc,x,y,renderWidth_,renderHeight_,0,0,renderWidth_,renderHeight_,pixels_.data(),&bmi,DIB_RGB_COLORS,SRCCOPY);
     }
 }
