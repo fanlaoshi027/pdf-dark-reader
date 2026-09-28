@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <windowsx.h>
+#include <objidl.h>
 #include <gdiplus.h>
 
 #pragma comment(lib, "gdiplus.lib")
@@ -91,7 +92,7 @@ void LayerSystem::UpdatePen(UINT32 pointerId,POINT screenPoint,float pressure){
     if(tool_==MosuanTool::Lasso){if(lassoPoints_.empty()||std::abs(p.x-lassoPoints_.back().x)+std::abs(p.y-lassoPoints_.back().y)>=3)lassoPoints_.push_back(p);InvalidateRect(overlay_,nullptr,FALSE);return;}
     if(strokes_.empty())return;
     const POINT pdf=ViewToPdf(p.x,p.y);auto& stroke=strokes_.back();
-    if(tool_==MosuanTool::Line){const auto first=stroke.points.front();stroke.points.resize(1);stroke.points.push_back({static_cast<double>(pdf.x),static_cast<double>(pdf.y),ClampPressure(pressure)});InvalidateRect(overlay_,nullptr,FALSE);return;}
+    if(tool_==MosuanTool::Line){stroke.points.resize(1);stroke.points.push_back({static_cast<double>(pdf.x),static_cast<double>(pdf.y),ClampPressure(pressure)});InvalidateRect(overlay_,nullptr,FALSE);return;}
     const auto& last=stroke.points.back();const double dx=pdf.x-last.pdfX,dy=pdf.y-last.pdfY;if(dx*dx+dy*dy<kMinPointDistance*kMinPointDistance)return;
     stroke.points.push_back({static_cast<double>(pdf.x),static_cast<double>(pdf.y),ClampPressure(pressure)});InvalidateRect(overlay_,nullptr,FALSE);
 }
@@ -113,7 +114,7 @@ void LayerSystem::PaintOverlay(HDC hdc){
         if(points.size()==1){const auto& p=points.front();const POINT v=PdfToView(p.x,p.y);const REAL width=static_cast<REAL>((std::max)(1.0,PressureWidth(p.pressure)*transform_.scale));SolidBrush brush(selected?Color(255,40,120,255):color);graphics.FillEllipse(&brush,v.x-width*.5f,v.y-width*.5f,width,width);continue;}
         for(size_t i=1;i<points.size();++i){const auto&a=points[i-1];const auto&b=points[i];const POINT va=PdfToView(a.x,a.y),vb=PdfToView(b.x,b.y);REAL width=static_cast<REAL>((std::max)(1.0,PressureWidth((a.pressure+b.pressure)*.5f)*transform_.scale));Pen pen(selected?Color(255,40,120,255):color,width);pen.SetStartCap(LineCapRound);pen.SetEndCap(LineCapRound);pen.SetLineJoin(LineJoinRound);graphics.DrawLine(&pen,static_cast<REAL>(va.x),static_cast<REAL>(va.y),static_cast<REAL>(vb.x),static_cast<REAL>(vb.y));}
     }
-    if(tool_==MosuanTool::Lasso&&!lassoPoints_.empty()){Pen lassoPen(Color(230,35,90,180),1.5f);lassoPen.SetDashStyle(DashStyleDash);for(size_t i=1;i<lassoPoints_.size();++i)graphics.DrawLine(&lassoPen,(REAL)lassoPoints_[i-1].x,(REAL)lassoPoints_[i-1].y,(REAL)lassoPoints_[i].x,(REAL)lassoPoints_[i].y);}
+    if(tool_==MosuanTool::Lasso&&!lassoPoints_.empty()){Pen lassoPen(Color(230,35,90,180),1.5f);lassoPen.SetDashStyle(DashStyleDash);for(size_t i=1;i<lassoPoints_.size();++i)graphics.DrawLine(&lassoPen,(REAL)lassoPoints_[i-1].x,(REAL)lassoPoints_[i].y,(REAL)lassoPoints_[i].x,(REAL)lassoPoints_[i].y);}
 }
 void LayerSystem::UpdateHitTest(){if(overlay_)InvalidateRect(overlay_,nullptr,FALSE);}
 
