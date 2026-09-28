@@ -42,7 +42,7 @@ public:
     POINT PdfToView(double pdfX, double pdfY) const;
     POINT ViewToPdf(int viewX, int viewY) const;
 
-    void SetPenEnabled(bool enabled) { penEnabled_ = enabled; UpdateHitTest(); }
+    void SetPenEnabled(bool enabled);
     bool PenEnabled() const { return penEnabled_; }
     void ClearInk();
 
