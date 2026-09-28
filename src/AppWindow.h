@@ -32,6 +32,7 @@ private:
     void FitWidth();
     void ShowLayerMenu();
     void UpdateLayerGeometry();
+    void SetMosuanTool(MosuanTool tool);
 
     HWND hwnd_ = nullptr;
     HINSTANCE instance_ = nullptr;
@@ -58,5 +59,9 @@ private:
     HWND invertButton_ = nullptr;
     HWND colorButton_ = nullptr;
     HWND layerButton_ = nullptr;
+    HWND penButton_ = nullptr;
+    HWND lineButton_ = nullptr;
+    HWND eraserButton_ = nullptr;
+    HWND lassoButton_ = nullptr;
     HWND pageLabel_ = nullptr;
 };
