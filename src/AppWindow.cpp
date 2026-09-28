@@ -76,10 +76,7 @@ bool AppWindow::Create(HINSTANCE instance) {
 
 int AppWindow::Run() {
     MSG msg{};
-    while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
-        TranslateMessage(&msg);
-        DispatchMessageW(&msg);
-    }
+    while (GetMessageW(&msg, nullptr, 0, 0) > 0) { TranslateMessage(&msg); DispatchMessageW(&msg); }
     return static_cast<int>(msg.wParam);
 }
 
@@ -121,8 +118,7 @@ void AppWindow::LayoutToolbar(int width) {
 
 void AppWindow::UpdateToolbarText() {
     wchar_t zoomText[32];
-    if(fitWidth_) lstrcpyW(zoomText,L"宽度");
-    else wsprintfW(zoomText,L"%d%%",static_cast<int>(std::lround(zoom_*100.0)));
+    if(fitWidth_) lstrcpyW(zoomText,L"宽度"); else wsprintfW(zoomText,L"%d%%",static_cast<int>(std::lround(zoom_*100.0)));
     SetWindowTextW(zoomLabel_,zoomText);
     SetWindowTextW(colorButton_,BackgroundName(invertSettings_));
     if(!pdf_.IsOpen()) SetWindowTextW(pageLabel_,L"未打开 PDF");
@@ -148,14 +144,8 @@ LRESULT AppWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
         case ID_COLOR_CHARCOAL: invertSettings_.backgroundR=invertSettings_.backgroundG=invertSettings_.backgroundB=26; UpdateToolbarText(); if(invert_) RenderCurrentPage(); return 0;
         case ID_COLOR_BLUE: invertSettings_.backgroundR=16; invertSettings_.backgroundG=24; invertSettings_.backgroundB=39; UpdateToolbarText(); if(invert_) RenderCurrentPage(); return 0;
         case ID_COLOR_CUSTOM: {
-            CHOOSECOLORW cc{}; static COLORREF custom[16]{};
-            cc.lStructSize=sizeof(cc); cc.hwndOwner=hwnd_;
-            cc.rgbResult=RGB(invertSettings_.backgroundR,invertSettings_.backgroundG,invertSettings_.backgroundB);
-            cc.lpCustColors=custom; cc.Flags=CC_FULLOPEN|CC_RGBINIT;
-            if(ChooseColorW(&cc)) {
-                invertSettings_.backgroundR=GetRValue(cc.rgbResult); invertSettings_.backgroundG=GetGValue(cc.rgbResult); invertSettings_.backgroundB=GetBValue(cc.rgbResult);
-                UpdateToolbarText(); if(invert_) RenderCurrentPage();
-            }
+            CHOOSECOLORW cc{}; static COLORREF custom[16]{}; cc.lStructSize=sizeof(cc); cc.hwndOwner=hwnd_; cc.rgbResult=RGB(invertSettings_.backgroundR,invertSettings_.backgroundG,invertSettings_.backgroundB); cc.lpCustColors=custom; cc.Flags=CC_FULLOPEN|CC_RGBINIT;
+            if(ChooseColorW(&cc)){invertSettings_.backgroundR=GetRValue(cc.rgbResult);invertSettings_.backgroundG=GetGValue(cc.rgbResult);invertSettings_.backgroundB=GetBValue(cc.rgbResult);UpdateToolbarText();if(invert_)RenderCurrentPage();}
             return 0;
         }
         case ID_LAYER_MOSUAN: layers_.SetMosuanVisible(true); layers_.SetMosuanActive(true); return 0;
@@ -172,13 +162,9 @@ LRESULT AppWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
         break;
     case WM_MOUSEWHEEL: ScrollBy(-(GET_WHEEL_DELTA_WPARAM(wParam)/WHEEL_DELTA)*90); return 0;
     case WM_VSCROLL:
-        switch(LOWORD(wParam)) {
-        case SB_LINEUP: ScrollBy(-60); break; case SB_LINEDOWN: ScrollBy(60); break; case SB_PAGEUP: ScrollBy(-400); break; case SB_PAGEDOWN: ScrollBy(400); break;
-        case SB_THUMBPOSITION: case SB_THUMBTRACK: { SCROLLINFO si{};si.cbSize=sizeof(si);si.fMask=SIF_TRACKPOS;GetScrollInfo(hwnd_,SB_VERT,&si);scrollY_=si.nTrackPos;UpdateLayerGeometry();InvalidateRect(hwnd_,nullptr,FALSE);break; }
-        default: break; }
+        switch(LOWORD(wParam)) { case SB_LINEUP: ScrollBy(-60); break; case SB_LINEDOWN: ScrollBy(60); break; case SB_PAGEUP: ScrollBy(-400); break; case SB_PAGEDOWN: ScrollBy(400); break; case SB_THUMBPOSITION: case SB_THUMBTRACK: { SCROLLINFO si{};si.cbSize=sizeof(si);si.fMask=SIF_TRACKPOS;GetScrollInfo(hwnd_,SB_VERT,&si);scrollY_=si.nTrackPos;UpdateLayerGeometry();InvalidateRect(hwnd_,nullptr,FALSE);break;} default: break; }
         return 0;
-    case WM_SIZE:
-        LayoutToolbar(static_cast<int>(LOWORD(lParam))); if(pdf_.IsOpen()) RenderCurrentPage(); return 0;
+    case WM_SIZE: LayoutToolbar(static_cast<int>(LOWORD(lParam))); if(pdf_.IsOpen()) RenderCurrentPage(); return 0;
     case WM_PAINT: { PAINTSTRUCT ps{};HDC hdc=BeginPaint(hwnd_,&ps);Paint(hdc);EndPaint(hwnd_,&ps);return 0; }
     case WM_DESTROY: PostQuitMessage(0); return 0;
     }
@@ -186,66 +172,44 @@ LRESULT AppWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
 }
 
 void AppWindow::OpenPdf() {
-    OPENFILENAMEW ofn{}; wchar_t file[MAX_PATH]{}; ofn.lStructSize=sizeof(ofn);ofn.hwndOwner=hwnd_;ofn.lpstrFile=file;ofn.nMaxFile=MAX_PATH;
-    ofn.lpstrFilter=L"PDF files (*.pdf)\0*.pdf\0All files (*.*)\0*.*\0";ofn.Flags=OFN_FILEMUSTEXIST|OFN_PATHMUSTEXIST;
-    if(GetOpenFileNameW(&ofn)){if(pdf_.Open(file)){pageIndex_=0;invert_=false;zoom_=1.0;fitWidth_=false;scrollY_=0;FitPage();}else MessageBoxW(hwnd_,L"无法打开这个 PDF 文件。",L"PDF Dark Reader",MB_ICONERROR);}
+    OPENFILENAMEW ofn{}; wchar_t file[MAX_PATH]{}; ofn.lStructSize=sizeof(ofn);ofn.hwndOwner=hwnd_;ofn.lpstrFile=file;ofn.nMaxFile=MAX_PATH;ofn.lpstrFilter=L"PDF files (*.pdf)\0*.pdf\0All files (*.*)\0*.*\0";ofn.Flags=OFN_FILEMUSTEXIST|OFN_PATHMUSTEXIST;
+    if(GetOpenFileNameW(&ofn)){if(pdf_.Open(file)){pageIndex_=0;invert_=false;zoom_=1.0;fitWidth_=false;scrollY_=0;layers_.ClearInk();FitPage();}else MessageBoxW(hwnd_,L"无法打开这个 PDF 文件。",L"PDF Dark Reader",MB_ICONERROR);}
 }
 
 void AppWindow::RenderCurrentPage() {
-    if(!pdf_.IsOpen()) return;
-    RECT rc{};GetClientRect(hwnd_,&rc);const int availableW=(std::max)(200,static_cast<int>(rc.right)-40);const int availableH=(std::max)(200,static_cast<int>(rc.bottom)-kToolbarHeight-20);
-    float pageW=1,pageH=1;if(!pdf_.PageSize(pageIndex_,pageW,pageH))return;
-    const double fitScale=std::min(static_cast<double>(availableW)/pageW,static_cast<double>(availableH)/pageH);
-    const double scale=fitWidth_ ? static_cast<double>(availableW)/pageW : fitScale*zoom_;
-    renderWidth_=(std::max)(1,static_cast<int>(pageW*scale));renderHeight_=(std::max)(1,static_cast<int>(pageH*scale));
-    if(!pdf_.RenderPage(pageIndex_,renderWidth_,renderHeight_,pixels_))return; ApplyInvert();
-    const int viewportH=(std::max)(1,static_cast<int>(rc.bottom)-kToolbarHeight);const int maxScroll=(std::max)(0,renderHeight_-viewportH+20);scrollY_=std::clamp(scrollY_,0,maxScroll);
-    UpdateScrollBar();UpdateToolbarText();UpdateLayerGeometry();InvalidateRect(hwnd_,nullptr,FALSE);
+    if(!pdf_.IsOpen())return;
+    RECT rc{};GetClientRect(hwnd_,&rc);const int availableW=(std::max)(200,static_cast<int>(rc.right)-40);const int availableH=(std::max)(200,static_cast<int>(rc.bottom)-kToolbarHeight-20);float pageW=1,pageH=1;if(!pdf_.PageSize(pageIndex_,pageW,pageH))return;
+    const double fitScale=std::min(static_cast<double>(availableW)/pageW,static_cast<double>(availableH)/pageH);const double scale=fitWidth_?static_cast<double>(availableW)/pageW:fitScale*zoom_;
+    renderWidth_=(std::max)(1,static_cast<int>(pageW*scale));renderHeight_=(std::max)(1,static_cast<int>(pageH*scale));if(!pdf_.RenderPage(pageIndex_,renderWidth_,renderHeight_,pixels_))return;ApplyInvert();
+    const int viewportH=(std::max)(1,static_cast<int>(rc.bottom)-kToolbarHeight);const int maxScroll=(std::max)(0,renderHeight_-viewportH+20);scrollY_=std::clamp(scrollY_,0,maxScroll);UpdateScrollBar();UpdateToolbarText();UpdateLayerGeometry();InvalidateRect(hwnd_,nullptr,FALSE);
 }
 
 void AppWindow::ApplyInvert(){invertSettings_.enabled=invert_;InvertBgra(pixels_,invertSettings_);}
 
 void AppWindow::ChangeZoom(double factor){
-    if(!pdf_.IsOpen())return;fitWidth_=false;RECT rc{};GetClientRect(hwnd_,&rc);const int viewportH=(std::max)(1,static_cast<int>(rc.bottom)-kToolbarHeight);const int oldHeight=(std::max)(1,renderHeight_);
-    const double centerRatio=std::clamp((scrollY_+viewportH*0.5)/static_cast<double>(oldHeight),0.0,1.0);zoom_=std::clamp(zoom_*factor,0.5,4.0);RenderCurrentPage();
-    const int newMax=(std::max)(0,renderHeight_-viewportH+20);scrollY_=std::clamp(static_cast<int>(centerRatio*renderHeight_-viewportH*0.5),0,newMax);UpdateScrollBar();UpdateLayerGeometry();InvalidateRect(hwnd_,nullptr,FALSE);
+    if(!pdf_.IsOpen())return;fitWidth_=false;RECT rc{};GetClientRect(hwnd_,&rc);const int viewportH=(std::max)(1,static_cast<int>(rc.bottom)-kToolbarHeight);const int oldHeight=(std::max)(1,renderHeight_);const double centerRatio=std::clamp((scrollY_+viewportH*0.5)/static_cast<double>(oldHeight),0.0,1.0);zoom_=std::clamp(zoom_*factor,0.5,4.0);RenderCurrentPage();const int newMax=(std::max)(0,renderHeight_-viewportH+20);scrollY_=std::clamp(static_cast<int>(centerRatio*renderHeight_-viewportH*0.5),0,newMax);UpdateScrollBar();UpdateLayerGeometry();InvalidateRect(hwnd_,nullptr,FALSE);
 }
 
 void AppWindow::FitPage(){fitWidth_=false;zoom_=1.0;scrollY_=0;RenderCurrentPage();}
-
 void AppWindow::FitWidth(){if(!pdf_.IsOpen())return;fitWidth_=true;scrollY_=0;RenderCurrentPage();}
-
 void AppWindow::SetInvert(bool enabled){invert_=enabled;if(pdf_.IsOpen())RenderCurrentPage();else UpdateToolbarText();}
-
-void AppWindow::GoPage(int delta){if(!pdf_.IsOpen())return;const int next=pageIndex_+delta;if(next<0||next>=pdf_.PageCount())return;pageIndex_=next;scrollY_=0;RenderCurrentPage();}
-
+void AppWindow::GoPage(int delta){if(!pdf_.IsOpen())return;const int next=pageIndex_+delta;if(next<0||next>=pdf_.PageCount())return;pageIndex_=next;scrollY_=0;layers_.ClearInk();RenderCurrentPage();}
 void AppWindow::ScrollBy(int delta){
-    if(!pdf_.IsOpen())return;RECT rc{};GetClientRect(hwnd_,&rc);const int viewportH=(std::max)(1,static_cast<int>(rc.bottom)-kToolbarHeight);const int maxScroll=(std::max)(0,renderHeight_-viewportH+20);
-    if(maxScroll>0){const int old=scrollY_;scrollY_=std::clamp(scrollY_+delta,0,maxScroll);if(old!=scrollY_){UpdateScrollBar();UpdateLayerGeometry();InvalidateRect(hwnd_,nullptr,FALSE);}return;}
-    if(delta>0)GoPage(-1);else if(delta<0)GoPage(1);
+    if(!pdf_.IsOpen())return;RECT rc{};GetClientRect(hwnd_,&rc);const int viewportH=(std::max)(1,static_cast<int>(rc.bottom)-kToolbarHeight);const int maxScroll=(std::max)(0,renderHeight_-viewportH+20);if(maxScroll>0){const int old=scrollY_;scrollY_=std::clamp(scrollY_+delta,0,maxScroll);if(old!=scrollY_){UpdateScrollBar();UpdateLayerGeometry();InvalidateRect(hwnd_,nullptr,FALSE);}return;}if(delta>0)GoPage(-1);else if(delta<0)GoPage(1);
 }
-
 void AppWindow::UpdateScrollBar(){RECT rc{};GetClientRect(hwnd_,&rc);const int viewportH=(std::max)(1,static_cast<int>(rc.bottom)-kToolbarHeight);const int maxScroll=(std::max)(0,renderHeight_-viewportH+20);SCROLLINFO si{};si.cbSize=sizeof(si);si.fMask=SIF_RANGE|SIF_PAGE|SIF_POS;si.nMin=0;si.nMax=maxScroll;si.nPage=static_cast<UINT>(viewportH);si.nPos=std::clamp(scrollY_,0,maxScroll);SetScrollInfo(hwnd_,SB_VERT,&si,TRUE);}
 
 void AppWindow::UpdateLayerGeometry(){
     RECT rc{};GetClientRect(hwnd_,&rc);RECT viewport{0,kToolbarHeight,rc.right,rc.bottom};layers_.Resize(viewport);
+    float pageW=1,pageH=1;if(!pdf_.PageSize(pageIndex_,pageW,pageH))return;
     const int availableW=(std::max)(1,static_cast<int>(rc.right)-20);const int x=(std::max)(10,(availableW-renderWidth_)/2);const int y=kToolbarHeight+10-scrollY_;
-    PdfViewTransform t{};t.scale=1.0;t.originX=x;t.originY=y;t.pageWidth=renderWidth_;t.pageHeight=renderHeight_;layers_.SetTransform(t);
+    const double scale=pageW>0.0?static_cast<double>(renderWidth_)/pageW:1.0;
+    // The overlay's local origin is the document's top-left inside the viewport.
+    PdfViewTransform t{};t.scale=scale;t.originX=x;t.originY=y-kToolbarHeight;t.pageWidth=static_cast<int>(pageW);t.pageHeight=static_cast<int>(pageH);layers_.SetTransform(t);
 }
 
 void AppWindow::ChooseBackground(){POINT p{};GetCursorPos(&p);HMENU menu=CreatePopupMenu();AppendMenuW(menu,MF_STRING,ID_COLOR_BLACK,L"深黑");AppendMenuW(menu,MF_STRING,ID_COLOR_CHARCOAL,L"炭黑");AppendMenuW(menu,MF_STRING,ID_COLOR_BLUE,L"深蓝");AppendMenuW(menu,MF_SEPARATOR,0,nullptr);AppendMenuW(menu,MF_STRING,ID_COLOR_CUSTOM,L"自定义颜色…");TrackPopupMenu(menu,TPM_RIGHTBUTTON|TPM_TOPALIGN,p.x,p.y,0,hwnd_,nullptr);DestroyMenu(menu);}
 
-void AppWindow::ShowLayerMenu(){
-    POINT p{};GetCursorPos(&p);HMENU menu=CreatePopupMenu();
-    AppendMenuW(menu,(layers_.MosuanVisible()?MF_CHECKED:MF_UNCHECKED)|MF_STRING,ID_LAYER_MOSUAN,L"墨算（上层）");
-    AppendMenuW(menu,MF_CHECKED|MF_STRING,ID_LAYER_PDF,L"PDF（下层）");
-    TrackPopupMenu(menu,TPM_RIGHTBUTTON|TPM_TOPALIGN,p.x,p.y,0,hwnd_,nullptr);DestroyMenu(menu);
-}
+void AppWindow::ShowLayerMenu(){POINT p{};GetCursorPos(&p);HMENU menu=CreatePopupMenu();AppendMenuW(menu,(layers_.MosuanVisible()?MF_CHECKED:MF_UNCHECKED)|MF_STRING,ID_LAYER_MOSUAN,L"墨算（上层）");AppendMenuW(menu,MF_CHECKED|MF_STRING,ID_LAYER_PDF,L"PDF（下层）");TrackPopupMenu(menu,TPM_RIGHTBUTTON|TPM_TOPALIGN,p.x,p.y,0,hwnd_,nullptr);DestroyMenu(menu);}
 
-void AppWindow::Paint(HDC hdc){
-    RECT rc{};GetClientRect(hwnd_,&rc);const COLORREF bg=invert_?RGB(invertSettings_.backgroundR,invertSettings_.backgroundG,invertSettings_.backgroundB):RGB(235,235,235);
-    HBRUSH brush=CreateSolidBrush(bg);FillRect(hdc,&rc,brush);DeleteObject(brush);HBRUSH toolbarBrush=CreateSolidBrush(invert_?RGB(32,32,32):RGB(248,248,248));RECT toolbarRect{0,0,rc.right,kToolbarHeight};FillRect(hdc,&toolbarRect,toolbarBrush);DeleteObject(toolbarBrush);
-    if(!pdf_.IsOpen()||pixels_.empty()){SetBkMode(hdc,TRANSPARENT);SetTextColor(hdc,invert_?RGB(225,225,225):RGB(70,70,70));RECT body=rc;body.top=kToolbarHeight;DrawTextW(hdc,L"点击“打开”选择 PDF",-1,&body,DT_CENTER|DT_VCENTER|DT_SINGLELINE);return;}
-    const int viewportTop=kToolbarHeight;const int viewportBottom=static_cast<int>(rc.bottom);const int availableW=static_cast<int>(rc.right)-20;const int x=(std::max)(10,(availableW-renderWidth_)/2);const int y=viewportTop+10-scrollY_;
-    if(y<viewportBottom&&y+renderHeight_>viewportTop){BITMAPINFO bmi{};bmi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);bmi.bmiHeader.biWidth=renderWidth_;bmi.bmiHeader.biHeight=-renderHeight_;bmi.bmiHeader.biPlanes=1;bmi.bmiHeader.biBitCount=32;bmi.bmiHeader.biCompression=BI_RGB;StretchDIBits(hdc,x,y,renderWidth_,renderHeight_,0,0,renderWidth_,renderHeight_,pixels_.data(),&bmi,DIB_RGB_COLORS,SRCCOPY);}
-}
+void AppWindow::Paint(HDC hdc){RECT rc{};GetClientRect(hwnd_,&rc);const COLORREF bg=invert_?RGB(invertSettings_.backgroundR,invertSettings_.backgroundG,invertSettings_.backgroundB):RGB(235,235,235);HBRUSH brush=CreateSolidBrush(bg);FillRect(hdc,&rc,brush);DeleteObject(brush);HBRUSH toolbarBrush=CreateSolidBrush(invert_?RGB(32,32,32):RGB(248,248,248));RECT toolbarRect{0,0,rc.right,kToolbarHeight};FillRect(hdc,&toolbarRect,toolbarBrush);DeleteObject(toolbarBrush);if(!pdf_.IsOpen()||pixels_.empty()){SetBkMode(hdc,TRANSPARENT);SetTextColor(hdc,invert_?RGB(225,225,225):RGB(70,70,70));RECT body=rc;body.top=kToolbarHeight;DrawTextW(hdc,L"点击“打开”选择 PDF",-1,&body,DT_CENTER|DT_VCENTER|DT_SINGLELINE);return;}const int viewportTop=kToolbarHeight;const int viewportBottom=static_cast<int>(rc.bottom);const int availableW=static_cast<int>(rc.right)-20;const int x=(std::max)(10,(availableW-renderWidth_)/2);const int y=viewportTop+10-scrollY_;if(y<viewportBottom&&y+renderHeight_>viewportTop){BITMAPINFO bmi{};bmi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);bmi.bmiHeader.biWidth=renderWidth_;bmi.bmiHeader.biHeight=-renderHeight_;bmi.bmiHeader.biPlanes=1;bmi.bmiHeader.biBitCount=32;bmi.bmiHeader.biCompression=BI_RGB;StretchDIBits(hdc,x,y,renderWidth_,renderHeight_,0,0,renderWidth_,renderHeight_,pixels_.data(),&bmi,DIB_RGB_COLORS,SRCCOPY);}}
