@@ -27,6 +27,7 @@ add_executable(PDFDarkReader WIN32
     src/LayerSystem.cpp
     src/FavoriteBar.cpp
     src/ToolbarSkin.cpp
+    src/TopToolbar.cpp
 )
 target_include_directories(PDFDarkReader PRIVATE "${PDFIUM_INCLUDE_DIR}")
 target_compile_definitions(PDFDarkReader PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
