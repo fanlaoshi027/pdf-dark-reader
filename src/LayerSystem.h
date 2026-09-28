@@ -22,11 +22,6 @@ struct InkStroke {
     std::vector<InkPoint> points;
 };
 
-// Two independent layers with one shared PDF/view coordinate system:
-//   bottom: PDF document
-//   top:    Mosuan (墨算) ink/annotation layer
-// The ink is stored in PDF coordinates, so zooming/scrolling never changes
-// where a stroke belongs on the page.
 class LayerSystem {
 public:
     bool Create(HWND parent);
