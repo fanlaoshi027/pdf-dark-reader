@@ -1,7 +1,6 @@
 #include <cmath>
 #include <windows.h>
 #include <windowsx.h>
-#include <algorithm>
 
 namespace {
 constexpr wchar_t kMainClass[] = L"PDFDarkReaderWindow";
@@ -16,9 +15,10 @@ void Send(int id){ if(g.main) SendMessageW(g.main,WM_COMMAND,MAKEWPARAM(id,BN_CL
 void Line(HDC h,int x1,int y1,int x2,int y2){MoveToEx(h,x1,y1,nullptr);LineTo(h,x2,y2);}
 void Circle(HDC h,int x,int y,int r){Ellipse(h,x-r,y-r,x+r,y+r);}
 void DrawIcon(HDC h,int id,int x,int y,bool active){
-    HPEN p=CreatePen(PS_SOLID,2,RGB(230,235,242));
-    HBRUSH b=CreateSolidBrush(active?RGB(60,120,205):RGB(32,38,48));
-    auto op=SelectObject(h,p), ob=SelectObject(h,b);
+    COLORREF stroke=RGB(230,235,242), fill=active?RGB(60,120,205):RGB(32,38,48);
+    if(id==11) fill=RGB(25,25,25); if(id==12) fill=RGB(220,45,55); if(id==13) fill=RGB(45,90,210);
+    HPEN p=CreatePen(PS_SOLID,(id>=11&&id<=13)?1:2,stroke);
+    HBRUSH b=CreateSolidBrush(fill); auto op=SelectObject(h,p), ob=SelectObject(h,b);
     switch(id){
     case 0: Rectangle(h,x+5,y+9,x+21,y+21);Line(h,x+5,y+9,x+11,y+9);Line(h,x+11,y+9,x+14,y+12);break;
     case 1: Rectangle(h,x+5,y+6,x+21,y+22);Rectangle(h,x+9,y+7,x+17,y+12);Rectangle(h,x+9,y+16,x+18,y+21);break;
@@ -31,19 +31,21 @@ void DrawIcon(HDC h,int id,int x,int y,bool active){
     case 8: Ellipse(h,x+6,y+7,x+22,y+21);Line(h,x+18,y+18,x+23,y+23);break;
     case 9: {POINT pts[4]={{x+7,y+18},{x+13,y+7},{x+22,y+12},{x+16,y+22}};Polygon(h,pts,4);}break;
     case 10: Line(h,x+7,y+21,x+21,y+7);break;
-    case 11: Circle(h,x+14,y+14,5);break;
-    case 12: Circle(h,x+14,y+14,7);break;
-    case 13: Circle(h,x+14,y+14,9);break;
-    case 14: Line(h,x+7,y+14,x+21,y+14);break;
-    case 15: Line(h,x+6,y+14,x+10,y+14);Line(h,x+14,y+14,x+18,y+14);break;
-    case 16: Arc(h,x+6,y+7,x+22,y+21,0,0,0,0);Line(h,x+7,y+18,x+20,y+9);break;
+    case 11: Circle(h,x+14,y+14,6);break;
+    case 12: Circle(h,x+14,y+14,6);break;
+    case 13: Circle(h,x+14,y+14,6);break;
+    case 14: {HPEN q=CreatePen(PS_SOLID,1,stroke);HGDIOBJ old=SelectObject(h,q);Line(h,x+6,y+14,x+22,y+14);SelectObject(h,old);DeleteObject(q);break;}
+    case 15: Line(h,x+6,y+14,x+22,y+14);break;
+    case 16: {HPEN q=CreatePen(PS_SOLID,4,stroke);HGDIOBJ old=SelectObject(h,q);Line(h,x+6,y+14,x+22,y+14);SelectObject(h,old);DeleteObject(q);break;}
+    case 17: Line(h,x+6,y+14,x+10,y+14);Line(h,x+14,y+14,x+18,y+14);break;
+    case 18: {Arc(h,x+6,y+7,x+22,y+21,0,0,0,0);Line(h,x+7,y+18,x+20,y+9);break;}
     }
     SelectObject(h,ob);SelectObject(h,op);DeleteObject(b);DeleteObject(p);
 }
 LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp){
     switch(m){
     case WM_LBUTTONDOWN:{int x=GET_X_LPARAM(lp);int pos=x-8;if(pos<42){Send(ID_OPEN);return 0;}pos-=46;if(pos<42){return 0;}pos-=46;if(pos<42){Send(ID_ZOOM_OUT);return 0;}pos-=46;if(pos<42){Send(ID_ZOOM_IN);return 0;}pos-=46;if(pos<42){Send(ID_FIT_WIDTH);return 0;}pos-=56;if(pos<42){return 0;}pos-=46;if(pos<42){Send(ID_TOOL_PEN);g.selectedTool=6;InvalidateRect(w,nullptr,FALSE);return 0;}pos-=46;if(pos<42){return 0;}pos-=46;if(pos<42){Send(ID_TOOL_LASSO);g.selectedTool=8;InvalidateRect(w,nullptr,FALSE);return 0;}pos-=46;if(pos<42){Send(ID_TOOL_ERASER);g.selectedTool=9;InvalidateRect(w,nullptr,FALSE);return 0;}pos-=46;if(pos<42){Send(ID_TOOL_LINE);g.selectedTool=10;InvalidateRect(w,nullptr,FALSE);return 0;}return 0;}
-    case WM_PAINT:{PAINTSTRUCT ps{};HDC h=BeginPaint(w,&ps);RECT r{};GetClientRect(w,&r);HBRUSH bg=CreateSolidBrush(RGB(25,31,40));FillRect(h,&r,bg);DeleteObject(bg);int x=8;for(int i=0;i<2;i++){DrawIcon(h,i,x,8,false);x+=46;}MoveToEx(h,x-7,5,nullptr);LineTo(h,x-7,41);x+=8;for(int id=2;id<=5;id++){DrawIcon(h,id,x,8,false);x+=46;}MoveToEx(h,x-7,5,nullptr);LineTo(h,x-7,41);x+=8;for(int id=6;id<=10;id++){DrawIcon(h,id,x,8,g.selectedTool==id);x+=46;}MoveToEx(h,x-7,5,nullptr);LineTo(h,x-7,41);x+=8;DrawIcon(h,11,x,8,g.color==0);x+=38;DrawIcon(h,12,x,8,g.color==1);x+=38;DrawIcon(h,13,x,8,g.color==2);x+=46;DrawIcon(h,14,x,8,g.width==0);x+=46;DrawIcon(h,15,x,8,g.dashed);x+=46;DrawIcon(h,16,x,8,g.oneStroke);EndPaint(w,&ps);return 0;}
+    case WM_PAINT:{PAINTSTRUCT ps{};HDC h=BeginPaint(w,&ps);RECT r{};GetClientRect(w,&r);HBRUSH bg=CreateSolidBrush(RGB(25,31,40));FillRect(h,&r,bg);DeleteObject(bg);int x=8;for(int i=0;i<2;i++){DrawIcon(h,i,x,8,false);x+=46;}MoveToEx(h,x-7,5,nullptr);LineTo(h,x-7,41);x+=8;for(int id=2;id<=5;id++){DrawIcon(h,id,x,8,false);x+=46;}MoveToEx(h,x-7,5,nullptr);LineTo(h,x-7,41);x+=8;for(int id=6;id<=10;id++){DrawIcon(h,id,x,8,g.selectedTool==id);x+=46;}MoveToEx(h,x-7,5,nullptr);LineTo(h,x-7,41);x+=8;DrawIcon(h,11,x,8,g.color==0);x+=38;DrawIcon(h,12,x,8,g.color==1);x+=38;DrawIcon(h,13,x,8,g.color==2);x+=46;DrawIcon(h,14,x,8,g.width==0);x+=38;DrawIcon(h,15,x,8,g.width==1);x+=38;DrawIcon(h,16,x,8,g.width==2);x+=46;DrawIcon(h,17,x,8,g.dashed);x+=46;DrawIcon(h,18,x,8,g.oneStroke);EndPaint(w,&ps);return 0;}
     case WM_SIZE:InvalidateRect(w,nullptr,FALSE);return 0;}
     return DefWindowProcW(w,m,wp,lp);
 }
