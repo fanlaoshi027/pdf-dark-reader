@@ -18,36 +18,61 @@ enum : int {
     ID_ZOOM_OUT = 1004,
     ID_ZOOM_IN = 1005,
     ID_FIT = 1006,
-    ID_INVERT = 1007
+    ID_INVERT = 1007,
+    ID_COLOR = 1008,
+    ID_COLOR_BLACK = 1101,
+    ID_COLOR_CHARCOAL = 1102,
+    ID_COLOR_BLUE = 1103,
+    ID_COLOR_CUSTOM = 1104
 };
 
 void InvertBgra(std::vector<std::uint8_t>& pixels, const InvertSettings& s) {
     if (!s.enabled) return;
+
+    // The requested effect is an inversion of the neutral page luminance,
+    // not a complementary-color filter. Colored PDF content keeps its hue.
     const float strength = std::clamp(s.strength, 0.0f, 1.0f);
+    const float targetR = static_cast<float>(s.backgroundR) * strength;
+    const float targetG = static_cast<float>(s.backgroundG) * strength;
+    const float targetB = static_cast<float>(s.backgroundB) * strength;
+    constexpr float foreground = 235.0f;
+
     for (size_t i = 0; i + 3 < pixels.size(); i += 4) {
         const float b0 = static_cast<float>(pixels[i]);
         const float g0 = static_cast<float>(pixels[i + 1]);
         const float r0 = static_cast<float>(pixels[i + 2]);
+        const float maxC = (std::max)({r0, g0, b0});
+        const float minC = (std::min)({r0, g0, b0});
 
-        // Invert only neutral pixels (black/white/gray). Preserve hue for
-        // colored annotations, pens and diagrams.
-        const float maxC = (std::max)({ r0, g0, b0 });
-        const float minC = (std::min)({ r0, g0, b0 });
-        const bool neutral = (maxC - minC) <= 18.0f;
-        if (!neutral) continue;
+        // Keep saturated colors unchanged. Anti-aliased neutral text and
+        // grayscale scans are still inverted normally.
+        if ((maxC - minC) > 18.0f) continue;
 
-        const float b = 255.0f - b0;
-        const float g = 255.0f - g0;
-        const float r = 255.0f - r0;
-        pixels[i]     = static_cast<std::uint8_t>(std::clamp(s.backgroundB + (b - s.backgroundB) * strength, 0.0f, 255.0f));
-        pixels[i + 1] = static_cast<std::uint8_t>(std::clamp(s.backgroundG + (g - s.backgroundG) * strength, 0.0f, 255.0f));
-        pixels[i + 2] = static_cast<std::uint8_t>(std::clamp(s.backgroundR + (r - s.backgroundR) * strength, 0.0f, 255.0f));
+        const float invR = 255.0f - r0;
+        const float invG = 255.0f - g0;
+        const float invB = 255.0f - b0;
+
+        pixels[i]     = static_cast<std::uint8_t>(std::clamp(targetB + (invB / 255.0f) * (foreground - targetB), 0.0f, 255.0f));
+        pixels[i + 1] = static_cast<std::uint8_t>(std::clamp(targetG + (invG / 255.0f) * (foreground - targetG), 0.0f, 255.0f));
+        pixels[i + 2] = static_cast<std::uint8_t>(std::clamp(targetR + (invR / 255.0f) * (foreground - targetR), 0.0f, 255.0f));
     }
+}
+
+const wchar_t* BackgroundName(const InvertSettings& s) {
+    if (s.backgroundR == 26 && s.backgroundG == 26 && s.backgroundB == 26) return L"炭黑";
+    if (s.backgroundR == 16 && s.backgroundG == 24 && s.backgroundB == 39) return L"深蓝";
+    if (s.backgroundR == 12 && s.backgroundG == 12 && s.backgroundB == 12) return L"深黑";
+    return L"自定义";
 }
 }
 
 bool AppWindow::Create(HINSTANCE instance) {
     instance_ = instance;
+    invertSettings_.strength = 0.90f;
+    invertSettings_.backgroundR = 26;
+    invertSettings_.backgroundG = 26;
+    invertSettings_.backgroundB = 26;
+
     WNDCLASSEXW wc{};
     wc.cbSize = sizeof(wc);
     wc.hInstance = instance;
@@ -57,8 +82,10 @@ bool AppWindow::Create(HINSTANCE instance) {
     wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
     if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return false;
 
-    hwnd_ = CreateWindowExW(0, kClassName, kTitle, WS_OVERLAPPEDWINDOW | WS_VSCROLL,
-        CW_USEDEFAULT, CW_USEDEFAULT, 1200, 850, nullptr, nullptr, instance, this);
+    hwnd_ = CreateWindowExW(0, kClassName, kTitle,
+        WS_OVERLAPPEDWINDOW | WS_VSCROLL,
+        CW_USEDEFAULT, CW_USEDEFAULT, 1200, 850,
+        nullptr, nullptr, instance, this);
     if (!hwnd_) return false;
 
     CreateToolbar();
@@ -104,6 +131,8 @@ void AppWindow::CreateToolbar() {
         0, 0, 54, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(ID_FIT), instance_, nullptr);
     invertButton_ = CreateWindowW(L"BUTTON", L"反色", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
         0, 0, 60, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(ID_INVERT), instance_, nullptr);
+    colorButton_ = CreateWindowW(L"BUTTON", L"炭黑", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        0, 0, 60, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(ID_COLOR), instance_, nullptr);
     pageLabel_ = CreateWindowW(L"STATIC", L"未打开 PDF", WS_CHILD | WS_VISIBLE | SS_CENTER,
         0, 0, 120, kButtonHeight, hwnd_, nullptr, instance_, nullptr);
     LayoutToolbar(1200);
@@ -112,26 +141,28 @@ void AppWindow::CreateToolbar() {
 void AppWindow::LayoutToolbar(int width) {
     int x = kMargin;
     const int y = 8;
-    const int gap = 5;
+    const int gap = 4;
     auto place = [&](HWND w, int cw) {
         if (w) MoveWindow(w, x, y, cw, kButtonHeight, TRUE);
         x += cw + gap;
     };
-    place(openButton_, 70);
-    place(prevButton_, 70);
-    place(nextButton_, 70);
-    place(zoomOutButton_, 34);
-    place(zoomLabel_, 54);
-    place(zoomInButton_, 34);
-    place(fitButton_, 54);
-    place(invertButton_, 60);
-    if (pageLabel_) MoveWindow(pageLabel_, x + 8, y, (std::max)(100, width - x - 18), kButtonHeight, TRUE);
+    place(openButton_, 62);
+    place(prevButton_, 62);
+    place(nextButton_, 62);
+    place(zoomOutButton_, 32);
+    place(zoomLabel_, 52);
+    place(zoomInButton_, 32);
+    place(fitButton_, 52);
+    place(invertButton_, 56);
+    place(colorButton_, 60);
+    if (pageLabel_) MoveWindow(pageLabel_, x + 4, y, (std::max)(90, width - x - 14), kButtonHeight, TRUE);
 }
 
 void AppWindow::UpdateToolbarText() {
     wchar_t zoomText[32];
     wsprintfW(zoomText, L"%d%%", static_cast<int>(std::lround(zoom_ * 100.0)));
     SetWindowTextW(zoomLabel_, zoomText);
+    SetWindowTextW(colorButton_, BackgroundName(invertSettings_));
 
     if (!pdf_.IsOpen()) {
         SetWindowTextW(pageLabel_, L"未打开 PDF");
@@ -152,8 +183,36 @@ LRESULT AppWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
         case ID_NEXT: GoPage(1); return 0;
         case ID_ZOOM_OUT: ChangeZoom(0.8); return 0;
         case ID_ZOOM_IN: ChangeZoom(1.25); return 0;
-        case ID_FIT: zoom_ = 1.0; scrollY_ = 0; RenderCurrentPage(); return 0;
+        case ID_FIT: FitPage(); return 0;
         case ID_INVERT: SetInvert(!invert_); return 0;
+        case ID_COLOR: ChooseBackground(); return 0;
+        case ID_COLOR_BLACK:
+            invertSettings_.backgroundR = invertSettings_.backgroundG = invertSettings_.backgroundB = 12;
+            UpdateToolbarText(); if (invert_) RenderCurrentPage(); return 0;
+        case ID_COLOR_CHARCOAL:
+            invertSettings_.backgroundR = invertSettings_.backgroundG = invertSettings_.backgroundB = 26;
+            UpdateToolbarText(); if (invert_) RenderCurrentPage(); return 0;
+        case ID_COLOR_BLUE:
+            invertSettings_.backgroundR = 16; invertSettings_.backgroundG = 24; invertSettings_.backgroundB = 39;
+            UpdateToolbarText(); if (invert_) RenderCurrentPage(); return 0;
+        case ID_COLOR_CUSTOM: {
+            CHOOSECOLORW cc{};
+            static COLORREF custom[16]{};
+            COLORREF initial = RGB(invertSettings_.backgroundR, invertSettings_.backgroundG, invertSettings_.backgroundB);
+            cc.lStructSize = sizeof(cc);
+            cc.hwndOwner = hwnd_;
+            cc.rgbResult = initial;
+            cc.lpCustColors = custom;
+            cc.Flags = CC_FULLOPEN | CC_RGBINIT;
+            if (ChooseColorW(&cc)) {
+                invertSettings_.backgroundR = GetRValue(cc.rgbResult);
+                invertSettings_.backgroundG = GetGValue(cc.rgbResult);
+                invertSettings_.backgroundB = GetBValue(cc.rgbResult);
+                UpdateToolbarText();
+                if (invert_) RenderCurrentPage();
+            }
+            return 0;
+        }
         default: break;
         }
         break;
@@ -171,7 +230,7 @@ LRESULT AppWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
 
     case WM_MOUSEWHEEL: {
         const int delta = GET_WHEEL_DELTA_WPARAM(wParam);
-        ScrollBy(-(delta / 120) * 90);
+        ScrollBy(-(delta / WHEEL_DELTA) * 90);
         return 0;
     }
 
@@ -228,7 +287,7 @@ void AppWindow::OpenPdf() {
             invert_ = false;
             zoom_ = 1.0;
             scrollY_ = 0;
-            RenderCurrentPage();
+            FitPage();
         } else {
             MessageBoxW(hwnd_, L"无法打开这个 PDF 文件。", L"PDF Dark Reader", MB_ICONERROR);
         }
@@ -267,7 +326,22 @@ void AppWindow::ApplyInvert() {
 
 void AppWindow::ChangeZoom(double factor) {
     if (!pdf_.IsOpen()) return;
+    RECT rc{}; GetClientRect(hwnd_, &rc);
+    const int viewportH = (std::max)(1, rc.bottom - kToolbarHeight);
+    const int oldHeight = (std::max)(1, renderHeight_);
+    const double centerRatio = std::clamp((scrollY_ + viewportH * 0.5) / static_cast<double>(oldHeight), 0.0, 1.0);
+
     zoom_ = std::clamp(zoom_ * factor, 0.5, 4.0);
+    RenderCurrentPage();
+
+    const int newMax = (std::max)(0, renderHeight_ - viewportH + 20);
+    scrollY_ = std::clamp(static_cast<int>(centerRatio * renderHeight_ - viewportH * 0.5), 0, newMax);
+    UpdateScrollBar();
+    InvalidateRect(hwnd_, nullptr, FALSE);
+}
+
+void AppWindow::FitPage() {
+    zoom_ = 1.0;
     scrollY_ = 0;
     RenderCurrentPage();
 }
@@ -303,7 +377,6 @@ void AppWindow::ScrollBy(int delta) {
         return;
     }
 
-    // At fit-to-page size, mouse-wheel/vertical scrolling becomes page navigation.
     if (delta > 0) GoPage(-1);
     else if (delta < 0) GoPage(1);
 }
@@ -323,15 +396,28 @@ void AppWindow::UpdateScrollBar() {
     SetScrollInfo(hwnd_, SB_VERT, &si, TRUE);
 }
 
+void AppWindow::ChooseBackground() {
+    POINT p{};
+    GetCursorPos(&p);
+    HMENU menu = CreatePopupMenu();
+    AppendMenuW(menu, MF_STRING, ID_COLOR_BLACK, L"深黑");
+    AppendMenuW(menu, MF_STRING, ID_COLOR_CHARCOAL, L"炭黑");
+    AppendMenuW(menu, MF_STRING, ID_COLOR_BLUE, L"深蓝");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, ID_COLOR_CUSTOM, L"自定义颜色…");
+    TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_TOPALIGN, p.x, p.y, 0, hwnd_, nullptr);
+    DestroyMenu(menu);
+}
+
 void AppWindow::Paint(HDC hdc) {
     RECT rc{}; GetClientRect(hwnd_, &rc);
-    const COLORREF bg = invert_ ? RGB(26,26,26) : RGB(235,235,235);
+    const COLORREF bg = invert_ ? RGB(invertSettings_.backgroundR, invertSettings_.backgroundG, invertSettings_.backgroundB) : RGB(235,235,235);
     HBRUSH brush = CreateSolidBrush(bg);
     FillRect(hdc, &rc, brush);
     DeleteObject(brush);
 
     HBRUSH toolbarBrush = CreateSolidBrush(invert_ ? RGB(32,32,32) : RGB(248,248,248));
-    RECT toolbarRect{ 0, 0, rc.right, kToolbarHeight };
+    RECT toolbarRect{0, 0, rc.right, kToolbarHeight};
     FillRect(hdc, &toolbarRect, toolbarBrush);
     DeleteObject(toolbarBrush);
 
@@ -339,8 +425,7 @@ void AppWindow::Paint(HDC hdc) {
         SetBkMode(hdc, TRANSPARENT);
         SetTextColor(hdc, invert_ ? RGB(225,225,225) : RGB(70,70,70));
         RECT body = rc; body.top = kToolbarHeight;
-        const wchar_t* text = L"点击“打开”选择 PDF";
-        DrawTextW(hdc, text, -1, &body, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        DrawTextW(hdc, L"点击“打开”选择 PDF", -1, &body, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         return;
     }
 
