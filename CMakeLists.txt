@@ -27,7 +27,7 @@ add_executable(PDFDarkReader WIN32
     src/LayerSystem.cpp
 )
 target_include_directories(PDFDarkReader PRIVATE "${PDFIUM_INCLUDE_DIR}")
-target_compile_definitions(PDFDarkReader PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+target_compile_definitions(PDFDarkReader PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
 target_compile_options(PDFDarkReader PRIVATE /utf-8)
 target_link_libraries(PDFDarkReader PRIVATE "${PDFIUM_LIBRARY}" user32 gdi32 shell32 comdlg32)
 add_custom_command(TARGET PDFDarkReader POST_BUILD
