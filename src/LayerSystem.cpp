@@ -2,14 +2,18 @@
 #include <algorithm>
 #include <cmath>
 #include <windowsx.h>
+#include <gdiplus.h>
+
+#pragma comment(lib, "gdiplus.lib")
 
 namespace {
+using namespace Gdiplus;
 constexpr wchar_t kOverlayClass[] = L"PDFDarkReaderMosuanOverlay";
 constexpr float kMinPressure = 0.08f;
 constexpr float kMaxPressure = 1.00f;
-constexpr float kMinWidthPdf = 0.75f;
+constexpr float kMinWidthPdf = 0.70f;
 constexpr float kMaxWidthPdf = 2.45f;
-constexpr double kMinPointDistance = 0.35;
+constexpr double kMinPointDistance = 0.22;
 
 struct ViewPoint { double x; double y; float pressure; };
 
@@ -23,22 +27,64 @@ float PressureWidth(float p) {
     return kMinWidthPdf + (kMaxWidthPdf - kMinWidthPdf) * t;
 }
 
-ViewPoint SmoothPoint(const std::vector<InkPoint>& pts, size_t i) {
-    if (pts.size() < 3 || i == 0 || i + 1 >= pts.size()) {
-        const auto& p = pts[i];
-        return {p.pdfX, p.pdfY, p.pressure};
+ViewPoint CatmullRom(const InkPoint& p0, const InkPoint& p1, const InkPoint& p2, const InkPoint& p3, double t) {
+    const double t2 = t * t;
+    const double t3 = t2 * t;
+    const double x = 0.5 * ((2.0 * p1.pdfX) + (-p0.pdfX + p2.pdfX) * t +
+        (2.0 * p0.pdfX - 5.0 * p1.pdfX + 4.0 * p2.pdfX - p3.pdfX) * t2 +
+        (-p0.pdfX + 3.0 * p1.pdfX - 3.0 * p2.pdfX + p3.pdfX) * t3);
+    const double y = 0.5 * ((2.0 * p1.pdfY) + (-p0.pdfY + p2.pdfY) * t +
+        (2.0 * p0.pdfY - 5.0 * p1.pdfY + 4.0 * p2.pdfY - p3.pdfY) * t2 +
+        (-p0.pdfY + 3.0 * p1.pdfY - 3.0 * p2.pdfY + p3.pdfY) * t3);
+    const float pressure = static_cast<float>(
+        0.5 * ((2.0 * p1.pressure) + (-p0.pressure + p2.pressure) * t +
+        (2.0 * p0.pressure - 5.0 * p1.pressure + 4.0 * p2.pressure - p3.pressure) * t2 +
+        (-p0.pressure + 3.0 * p1.pressure - 3.0 * p2.pressure + p3.pressure) * t3));
+    return {x, y, ClampPressure(pressure)};
+}
+
+std::vector<ViewPoint> BuildSmoothStroke(const std::vector<InkPoint>& input) {
+    std::vector<ViewPoint> out;
+    if (input.empty()) return out;
+    if (input.size() == 1) {
+        out.push_back({input[0].pdfX, input[0].pdfY, ClampPressure(input[0].pressure)});
+        return out;
     }
-    const auto& a = pts[i - 1]; const auto& b = pts[i]; const auto& c = pts[i + 1];
-    return {
-        (a.pdfX + 2.0 * b.pdfX + c.pdfX) * 0.25,
-        (a.pdfY + 2.0 * b.pdfY + c.pdfY) * 0.25,
-        (a.pressure + 2.0f * b.pressure + c.pressure) * 0.25f
-    };
+
+    out.reserve(input.size() * 4);
+    for (size_t i = 0; i + 1 < input.size(); ++i) {
+        const InkPoint& p0 = input[i == 0 ? i : i - 1];
+        const InkPoint& p1 = input[i];
+        const InkPoint& p2 = input[i + 1];
+        const InkPoint& p3 = input[(i + 2 < input.size()) ? i + 2 : i + 1];
+
+        const double dx = p2.pdfX - p1.pdfX;
+        const double dy = p2.pdfY - p1.pdfY;
+        const double distance = std::sqrt(dx * dx + dy * dy);
+        const int steps = std::clamp(static_cast<int>(std::ceil(distance * 1.6)), 3, 32);
+        for (int s = 0; s < steps; ++s) {
+            const double t = static_cast<double>(s) / static_cast<double>(steps);
+            out.push_back(CatmullRom(p0, p1, p2, p3, t));
+        }
+    }
+    const auto& last = input.back();
+    out.push_back({last.pdfX, last.pdfY, ClampPressure(last.pressure)});
+    return out;
 }
 }
 
 bool LayerSystem::Create(HWND parent) {
     parent_ = parent;
+
+    // GDI+ provides real anti-aliased paths/round caps for the ink layer.
+    // The PDF layer remains completely independent.
+    static bool gdiplusStarted = false;
+    if (!gdiplusStarted) {
+        GdiplusStartupInput input;
+        ULONG_PTR token = 0;
+        if (GdiplusStartup(&token, &input, nullptr) == Ok) gdiplusStarted = true;
+    }
+
     WNDCLASSEXW wc{};
     wc.cbSize = sizeof(wc);
     wc.hInstance = GetModuleHandleW(nullptr);
@@ -93,17 +139,24 @@ void LayerSystem::BeginPen(UINT32 pointerId, POINT screenPoint, float pressure) 
     if (!overlay_ || !mosuanVisible_ || !mosuanActive_ || !penEnabled_) return;
     POINT p = screenPoint; ScreenToClient(overlay_, &p);
     const POINT pdf = ViewToPdf(p.x, p.y);
-    InkStroke stroke; stroke.points.push_back({static_cast<double>(pdf.x), static_cast<double>(pdf.y), ClampPressure(pressure)});
-    strokes_.push_back(std::move(stroke)); activePointerId_ = pointerId; penDown_ = true; SetCapture(overlay_);
+    InkStroke stroke;
+    stroke.points.push_back({static_cast<double>(pdf.x), static_cast<double>(pdf.y), ClampPressure(pressure)});
+    strokes_.push_back(std::move(stroke));
+    activePointerId_ = pointerId;
+    penDown_ = true;
+    SetCapture(overlay_);
     InvalidateRect(overlay_, nullptr, FALSE);
 }
 
 void LayerSystem::UpdatePen(UINT32 pointerId, POINT screenPoint, float pressure) {
     if (!penDown_ || pointerId != activePointerId_ || strokes_.empty()) return;
-    POINT p = screenPoint; ScreenToClient(overlay_, &p); const POINT pdf = ViewToPdf(p.x, p.y);
+    POINT p = screenPoint; ScreenToClient(overlay_, &p);
+    const POINT pdf = ViewToPdf(p.x, p.y);
     auto& stroke = strokes_.back();
     if (!stroke.points.empty()) {
-        const auto& last = stroke.points.back(); const double dx = pdf.x - last.pdfX; const double dy = pdf.y - last.pdfY;
+        const auto& last = stroke.points.back();
+        const double dx = pdf.x - last.pdfX;
+        const double dy = pdf.y - last.pdfY;
         if (dx * dx + dy * dy < kMinPointDistance * kMinPointDistance) return;
     }
     stroke.points.push_back({static_cast<double>(pdf.x), static_cast<double>(pdf.y), ClampPressure(pressure)});
@@ -112,31 +165,52 @@ void LayerSystem::UpdatePen(UINT32 pointerId, POINT screenPoint, float pressure)
 
 void LayerSystem::EndPen(UINT32 pointerId) {
     if (!penDown_ || pointerId != activePointerId_) return;
-    penDown_ = false; activePointerId_ = 0; ReleaseCapture(); InvalidateRect(overlay_, nullptr, FALSE);
+    penDown_ = false;
+    activePointerId_ = 0;
+    ReleaseCapture();
+    InvalidateRect(overlay_, nullptr, FALSE);
 }
 
 void LayerSystem::PaintOverlay(HDC hdc) {
     if (!mosuanVisible_) return;
-    SetBkMode(hdc, TRANSPARENT);
+
+    Graphics graphics(hdc);
+    graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+    graphics.SetPixelOffsetMode(PixelOffsetModeHighQuality);
+    graphics.SetCompositingQuality(CompositingQualityHighQuality);
+    graphics.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+
+    const Color color(255, GetRValue(penColor_), GetGValue(penColor_), GetBValue(penColor_));
+
     for (const auto& stroke : strokes_) {
         if (stroke.points.empty()) continue;
-        std::vector<ViewPoint> pts; pts.reserve(stroke.points.size());
-        for (size_t i = 0; i < stroke.points.size(); ++i) pts.push_back(SmoothPoint(stroke.points, i));
-        HPEN pen = CreatePen(PS_SOLID, 1, penColor_);
-        HGDIOBJ oldPen = SelectObject(hdc, pen);
-        for (size_t i = 1; i < pts.size(); ++i) {
-            const POINT a = PdfToView(pts[i - 1].x, pts[i - 1].y);
-            const POINT b = PdfToView(pts[i].x, pts[i].y);
-            const int width = (std::max)(1, static_cast<int>(std::lround(PressureWidth(pts[i].pressure) * transform_.scale)));
-            // GDI cannot vary a line's width point-by-point. Draw short pressure
-            // segments with a round cap; this keeps the visual pressure change
-            // smooth without changing the PDF coordinate data.
-            HPEN segment = CreatePen(PS_SOLID, width, penColor_);
-            HGDIOBJ old = SelectObject(hdc, segment);
-            MoveToEx(hdc, a.x, a.y, nullptr); LineTo(hdc, b.x, b.y);
-            SelectObject(hdc, old); DeleteObject(segment);
+        const auto points = BuildSmoothStroke(stroke.points);
+        if (points.empty()) continue;
+
+        if (points.size() == 1) {
+            const auto& p = points.front();
+            const PointF center(static_cast<REAL>(PdfToView(p.x, p.y).x),
+                                static_cast<REAL>(PdfToView(p.x, p.y).y));
+            const REAL width = static_cast<REAL>((std::max)(1.0, PressureWidth(p.pressure) * transform_.scale));
+            SolidBrush brush(color);
+            graphics.FillEllipse(&brush, center.X - width * 0.5f, center.Y - width * 0.5f, width, width);
+            continue;
         }
-        SelectObject(hdc, oldPen); DeleteObject(pen);
+
+        for (size_t i = 1; i < points.size(); ++i) {
+            const auto& a = points[i - 1];
+            const auto& b = points[i];
+            const POINT va = PdfToView(a.x, a.y);
+            const POINT vb = PdfToView(b.x, b.y);
+            const REAL width = static_cast<REAL>((std::max)(1.0, PressureWidth((a.pressure + b.pressure) * 0.5f) * transform_.scale));
+
+            Pen pen(color, width);
+            pen.SetStartCap(LineCapRound);
+            pen.SetEndCap(LineCapRound);
+            pen.SetLineJoin(LineJoinRound);
+            graphics.DrawLine(&pen, static_cast<REAL>(va.x), static_cast<REAL>(va.y),
+                              static_cast<REAL>(vb.x), static_cast<REAL>(vb.y));
+        }
     }
 }
 
@@ -145,27 +219,48 @@ void LayerSystem::UpdateHitTest() { if (overlay_) InvalidateRect(overlay_, nullp
 LRESULT CALLBACK LayerSystem::OverlayProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
     auto* self = reinterpret_cast<LayerSystem*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
     if (message == WM_NCCREATE) {
-        const auto* cs = reinterpret_cast<CREATESTRUCTW*>(lParam); self = static_cast<LayerSystem*>(cs->lpCreateParams);
+        const auto* cs = reinterpret_cast<CREATESTRUCTW*>(lParam);
+        self = static_cast<LayerSystem*>(cs->lpCreateParams);
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
     }
     if (!self) return DefWindowProcW(hwnd, message, wParam, lParam);
+
     switch (message) {
-    case WM_NCHITTEST: return (self->mosuanActive_ && self->penEnabled_) ? HTCLIENT : HTTRANSPARENT;
+    case WM_NCHITTEST:
+        return (self->mosuanActive_ && self->penEnabled_) ? HTCLIENT : HTTRANSPARENT;
     case WM_POINTERDOWN: {
-        const UINT32 id = GET_POINTERID_WPARAM(wParam); POINTER_INFO info{}; POINTER_PEN_INFO pen{};
+        const UINT32 id = GET_POINTERID_WPARAM(wParam);
+        POINTER_INFO info{};
+        POINTER_PEN_INFO pen{};
         if (!GetPointerInfo(id, &info) || info.pointerType != PT_PEN || !GetPointerPenInfo(id, &pen)) return 0;
-        self->BeginPen(id, info.ptPixelLocation, pen.pressure / 1024.0f); return 0;
+        self->BeginPen(id, info.ptPixelLocation, pen.pressure / 1024.0f);
+        return 0;
     }
     case WM_POINTERUPDATE: {
-        const UINT32 id = GET_POINTERID_WPARAM(wParam); if (!self->penDown_) return 0;
-        POINTER_INFO info{}; POINTER_PEN_INFO pen{};
+        const UINT32 id = GET_POINTERID_WPARAM(wParam);
+        if (!self->penDown_) return 0;
+        POINTER_INFO info{};
+        POINTER_PEN_INFO pen{};
         if (!GetPointerInfo(id, &info) || !GetPointerPenInfo(id, &pen)) return 0;
-        self->UpdatePen(id, info.ptPixelLocation, pen.pressure / 1024.0f); return 0;
+        self->UpdatePen(id, info.ptPixelLocation, pen.pressure / 1024.0f);
+        return 0;
     }
-    case WM_POINTERUP: self->EndPen(GET_POINTERID_WPARAM(wParam)); return 0;
-    case WM_CAPTURECHANGED: self->penDown_ = false; self->activePointerId_ = 0; return 0;
-    case WM_ERASEBKGND: return 1;
-    case WM_PAINT: { PAINTSTRUCT ps{}; HDC hdc = BeginPaint(hwnd, &ps); self->PaintOverlay(hdc); EndPaint(hwnd, &ps); return 0; }
+    case WM_POINTERUP:
+        self->EndPen(GET_POINTERID_WPARAM(wParam));
+        return 0;
+    case WM_CAPTURECHANGED:
+        self->penDown_ = false;
+        self->activePointerId_ = 0;
+        return 0;
+    case WM_ERASEBKGND:
+        return 1;
+    case WM_PAINT: {
+        PAINTSTRUCT ps{};
+        HDC hdc = BeginPaint(hwnd, &ps);
+        self->PaintOverlay(hdc);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
     }
     return DefWindowProcW(hwnd, message, wParam, lParam);
 }
