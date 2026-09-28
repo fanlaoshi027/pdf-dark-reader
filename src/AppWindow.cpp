@@ -6,7 +6,7 @@
 
 namespace {
 constexpr wchar_t kClassName[] = L"PDFDarkReaderWindow";
-constexpr wchar_t kTitle[] = L"PDF Dark Reader";
+constexpr wchar_t kTitle[] = L"Mosuan 墨算";
 constexpr int kToolbarHeight = 58;
 constexpr int kButtonHeight = 38;
 constexpr int kMargin = 12;
@@ -80,13 +80,18 @@ void AppWindow::CreateToolbar() {
             0, 0, 40, kButtonHeight, hwnd_, reinterpret_cast<HMENU>(id), instance_, nullptr);
         SendMessageW(w, WM_SETFONT, reinterpret_cast<WPARAM>(toolbarFont_), TRUE); return w;
     };
-    openButton_ = make(L"↥", ID_OPEN); saveButton_ = make(L"▣", ID_SAVE);
+    // PDF controls: icon-only. The zoom value is intentionally kept compact as a state readout.
+    openButton_ = make(L"⌑", ID_OPEN); saveButton_ = make(L"▣", ID_SAVE);
     zoomOutButton_ = make(L"−", ID_ZOOM_OUT);
     zoomLabel_ = CreateWindowW(L"STATIC", L"100%", WS_CHILD | WS_VISIBLE | SS_CENTER,
         0, 0, 54, kButtonHeight, hwnd_, nullptr, instance_, nullptr);
     zoomInButton_ = make(L"+", ID_ZOOM_IN); fitWidthButton_ = make(L"↔", ID_FIT_WIDTH); panButton_ = make(L"✋", ID_PAN);
+
+    // Mosuan controls: pen, ruler, lasso, eraser, line.
     penButton_ = make(L"✎", ID_TOOL_PEN); rulerButton_ = make(L"▱", ID_TOOL_RULER); lassoButton_ = make(L"⌁", ID_TOOL_LASSO);
     eraserButton_ = make(L"⌫", ID_TOOL_ERASER); lineButton_ = make(L"╱", ID_TOOL_LINE);
+
+    // Properties: three colors, three visual stroke widths, one dash toggle, one-stroke toggle.
     colorBlackButton_ = make(L"●", ID_PEN_BLACK); colorRedButton_ = make(L"●", ID_PEN_RED); colorBlueButton_ = make(L"●", ID_PEN_BLUE);
     thinButton_ = make(L"━", ID_WIDTH_THIN); mediumButton_ = make(L"━━", ID_WIDTH_MEDIUM); thickButton_ = make(L"━━━", ID_WIDTH_THICK);
     dashButton_ = make(L"┄", ID_DASH); oneStrokeButton_ = make(L"∞", ID_ONE_STROKE);
@@ -120,16 +125,22 @@ void AppWindow::DrawToolbarButton(const DRAWITEMSTRUCT* dis) {
         (id == ID_PEN_BLACK && penColorIndex_ == 0) || (id == ID_PEN_RED && penColorIndex_ == 1) || (id == ID_PEN_BLUE && penColorIndex_ == 2) ||
         (id == ID_WIDTH_THIN && penWidthIndex_ == 0) || (id == ID_WIDTH_MEDIUM && penWidthIndex_ == 1) || (id == ID_WIDTH_THICK && penWidthIndex_ == 2) ||
         (id == ID_DASH && dashMode_) || (id == ID_ONE_STROKE && oneStrokeMode_);
-    HBRUSH bg = CreateSolidBrush(selected ? RGB(48,111,205) : RGB(35,40,48)); FillRect(dc, &r, bg); DeleteObject(bg);
-    if (selected) {
-        HPEN border = CreatePen(PS_SOLID, 1, RGB(85,155,245)); HGDIOBJ oldPen = SelectObject(dc, border);
-        HGDIOBJ oldBrush = SelectObject(dc, GetStockObject(HOLLOW_BRUSH));
-        RoundRect(dc, r.left + 1, r.top + 1, r.right - 1, r.bottom - 1, 8, 8);
+    const bool pressed = (dis->itemState & ODS_SELECTED) != 0;
+    HBRUSH bg = CreateSolidBrush(selected ? RGB(48,111,205) : RGB(28,33,41)); FillRect(dc, &r, bg); DeleteObject(bg);
+    if (selected || pressed) {
+        HPEN border = CreatePen(PS_SOLID, selected ? 1 : 2, selected ? RGB(85,155,245) : RGB(95,105,120));
+        HGDIOBJ oldPen = SelectObject(dc, border); HGDIOBJ oldBrush = SelectObject(dc, GetStockObject(HOLLOW_BRUSH));
+        RoundRect(dc, r.left + 1, r.top + 1, r.right - 1, r.bottom - 1, 9, 9);
         SelectObject(dc, oldBrush); SelectObject(dc, oldPen); DeleteObject(border);
     }
     COLORREF text = RGB(235,238,242);
-    if (id == ID_PEN_BLACK) text = RGB(25,25,25); if (id == ID_PEN_RED) text = RGB(235,55,65); if (id == ID_PEN_BLUE) text = RGB(55,105,245);
-    SetBkMode(dc, TRANSPARENT); SetTextColor(dc, text); wchar_t glyph[8]{}; GetWindowTextW(dis->hwndItem, glyph, 8);
+    if (id == ID_PEN_BLACK) text = RGB(235,238,242);
+    if (id == ID_PEN_RED) text = RGB(245,65,75);
+    if (id == ID_PEN_BLUE) text = RGB(75,125,255);
+    if (id == ID_DASH) text = dashMode_ ? RGB(245,245,245) : RGB(170,178,188);
+    if (id == ID_ONE_STROKE) text = oneStrokeMode_ ? RGB(245,245,245) : RGB(170,178,188);
+    SetBkMode(dc, TRANSPARENT); SetTextColor(dc, text);
+    wchar_t glyph[8]{}; GetWindowTextW(dis->hwndItem, glyph, 8);
     HFONT oldFont = static_cast<HFONT>(SelectObject(dc, toolbarFont_)); DrawTextW(dc, glyph, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE); SelectObject(dc, oldFont);
 }
 
@@ -186,82 +197,11 @@ void AppWindow::OpenPdf() {
     OPENFILENAMEW ofn{}; wchar_t file[MAX_PATH]{}; ofn.lStructSize = sizeof(ofn); ofn.hwndOwner = hwnd_; ofn.lpstrFile = file; ofn.nMaxFile = MAX_PATH;
     ofn.lpstrFilter = L"PDF files (*.pdf)\0*.pdf\0All files (*.*)\0*.*\0"; ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
     if (GetOpenFileNameW(&ofn)) {
-        if (pdf_.Open(file)) { pageIndex_ = 0; invert_ = false; zoom_ = 1.0; fitWidth_ = false; scrollY_ = 0; layers_.ClearInk(); SetMosuanTool(MosuanTool::Pen); FitPage(); }
-        else MessageBoxW(hwnd_, L"无法打开这个 PDF 文件。", L"PDF Dark Reader", MB_ICONERROR);
+        if (pdf_.Open(file)) { pageIndex_ = 0; zoom_ = 1.0; fitWidth_ = false; scrollY_ = 0; SetInvert(false); RenderCurrentPage(); }
     }
 }
-void AppWindow::RenderCurrentPage() {
-    if (!pdf_.IsOpen()) return; RECT rc{}; GetClientRect(hwnd_, &rc);
-    const int availableW = (std::max)(200, static_cast<int>(rc.right) - 40); const int availableH = (std::max)(200, static_cast<int>(rc.bottom) - kToolbarHeight - 20);
-    float pageW = 1, pageH = 1; if (!pdf_.PageSize(pageIndex_, pageW, pageH)) return;
-    const double fitScale = std::min(static_cast<double>(availableW) / pageW, static_cast<double>(availableH) / pageH);
-    const double scale = fitWidth_ ? static_cast<double>(availableW) / pageW : fitScale * zoom_;
-    renderWidth_ = (std::max)(1, static_cast<int>(pageW * scale)); renderHeight_ = (std::max)(1, static_cast<int>(pageH * scale));
-    if (!pdf_.RenderPage(pageIndex_, renderWidth_, renderHeight_, pixels_)) return; ApplyInvert();
-    const int viewportH = (std::max)(1, static_cast<int>(rc.bottom) - kToolbarHeight); const int maxScroll = (std::max)(0, renderHeight_ - viewportH + 20);
-    scrollY_ = std::clamp(scrollY_, 0, maxScroll); UpdateScrollBar(); UpdateToolbarText(); UpdateLayerGeometry(); InvalidateRect(hwnd_, nullptr, FALSE);
-}
-void AppWindow::ApplyInvert() { invertSettings_.enabled = invert_; InvertBgra(pixels_, invertSettings_); }
-void AppWindow::ChangeZoom(double factor) {
-    if (!pdf_.IsOpen()) return; fitWidth_ = false; RECT rc{}; GetClientRect(hwnd_, &rc); const int viewportH = (std::max)(1, static_cast<int>(rc.bottom) - kToolbarHeight);
-    const int oldHeight = (std::max)(1, renderHeight_); const double centerRatio = std::clamp((scrollY_ + viewportH * 0.5) / static_cast<double>(oldHeight), 0.0, 1.0);
-    zoom_ = std::clamp(zoom_ * factor, 0.5, 4.0); RenderCurrentPage(); const int newMax = (std::max)(0, renderHeight_ - viewportH + 20);
-    scrollY_ = std::clamp(static_cast<int>(centerRatio * renderHeight_ - viewportH * 0.5), 0, newMax); UpdateScrollBar(); UpdateLayerGeometry(); InvalidateRect(hwnd_, nullptr, FALSE);
-}
-void AppWindow::FitPage() { fitWidth_ = false; zoom_ = 1.0; scrollY_ = 0; RenderCurrentPage(); }
-void AppWindow::FitWidth() { if (!pdf_.IsOpen()) return; fitWidth_ = true; scrollY_ = 0; RenderCurrentPage(); }
-void AppWindow::SetInvert(bool enabled) { invert_ = enabled; if (pdf_.IsOpen()) RenderCurrentPage(); }
-void AppWindow::GoPage(int delta) {
-    if (!pdf_.IsOpen()) return; const int next = pageIndex_ + delta; if (next < 0 || next >= pdf_.PageCount()) return;
-    pageIndex_ = next; scrollY_ = 0; layers_.ClearInk(); RenderCurrentPage();
-}
-void AppWindow::ScrollBy(int delta) {
-    if (!pdf_.IsOpen()) return; RECT rc{}; GetClientRect(hwnd_, &rc); const int viewportH = (std::max)(1, static_cast<int>(rc.bottom) - kToolbarHeight);
-    const int maxScroll = (std::max)(0, renderHeight_ - viewportH + 20); if (maxScroll > 0) {
-        const int old = scrollY_; scrollY_ = std::clamp(scrollY_ + delta, 0, maxScroll); if (old != scrollY_) { UpdateScrollBar(); UpdateLayerGeometry(); InvalidateRect(hwnd_, nullptr, FALSE); } return;
-    }
-    if (delta > 0) GoPage(-1); else if (delta < 0) GoPage(1);
-}
-void AppWindow::UpdateScrollBar() {
-    RECT rc{}; GetClientRect(hwnd_, &rc); const int viewportH = (std::max)(1, static_cast<int>(rc.bottom) - kToolbarHeight); const int maxScroll = (std::max)(0, renderHeight_ - viewportH + 20);
-    SCROLLINFO si{}; si.cbSize = sizeof(si); si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS; si.nMin = 0; si.nMax = maxScroll; si.nPage = static_cast<UINT>(viewportH); si.nPos = std::clamp(scrollY_, 0, maxScroll); SetScrollInfo(hwnd_, SB_VERT, &si, TRUE);
-}
-void AppWindow::UpdateLayerGeometry() {
-    RECT rc{}; GetClientRect(hwnd_, &rc); RECT viewport{0, kToolbarHeight, rc.right, rc.bottom}; layers_.Resize(viewport); float pageW = 1, pageH = 1; if (!pdf_.PageSize(pageIndex_, pageW, pageH)) return;
-    const int availableW = (std::max)(1, static_cast<int>(rc.right) - 20); const int x = (std::max)(10, (availableW - renderWidth_) / 2); const int y = kToolbarHeight + 10 - scrollY_;
-    const double scale = pageW > 0.0 ? static_cast<double>(renderWidth_) / pageW : 1.0; PdfViewTransform t{}; t.scale = scale; t.originX = x; t.originY = y - kToolbarHeight;
-    t.pageWidth = static_cast<int>(pageW); t.pageHeight = static_cast<int>(pageH); layers_.SetTransform(t);
-}
-void AppWindow::ChooseBackground() {}
-void AppWindow::ShowLayerMenu() {}
 
-void AppWindow::Paint(HDC hdc) {
-    RECT rc{}; GetClientRect(hwnd_, &rc);
-    const COLORREF bg = invert_ ? RGB(invertSettings_.backgroundR, invertSettings_.backgroundG, invertSettings_.backgroundB) : RGB(235,235,235);
-    HBRUSH brush = CreateSolidBrush(bg); FillRect(hdc, &rc, brush); DeleteObject(brush);
-
-    HBRUSH toolbarBrush = CreateSolidBrush(RGB(28,33,41)); HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(hdc, toolbarBrush));
-    HPEN toolbarPen = CreatePen(PS_SOLID, 1, RGB(65,73,84)); HPEN oldPen = static_cast<HPEN>(SelectObject(hdc, toolbarPen));
-    RECT toolbarRect{8,4,rc.right-8,kToolbarHeight-4}; RoundRect(hdc, toolbarRect.left, toolbarRect.top, toolbarRect.right, toolbarRect.bottom, 22,22);
-    SelectObject(hdc, oldPen); SelectObject(hdc, oldBrush); DeleteObject(toolbarPen); DeleteObject(toolbarBrush);
-
-    // Group dividers: PDF | 墨算 | 笔/线属性
-    HPEN divider = CreatePen(PS_SOLID, 1, RGB(83,91,103)); oldPen = static_cast<HPEN>(SelectObject(hdc, divider));
-    const int firstDivider = kMargin + 2*38 + 6*0 + 3*38 + 52 + 6*4;
-    MoveToEx(hdc, firstDivider + 1, 15, nullptr); LineTo(hdc, firstDivider + 1, kToolbarHeight - 15);
-    const int secondDivider = firstDivider + 10 + 5*38 + 4*4 + 10;
-    MoveToEx(hdc, secondDivider + 1, 15, nullptr); LineTo(hdc, secondDivider + 1, kToolbarHeight - 15);
-    SelectObject(hdc, oldPen); DeleteObject(divider);
-
-    if (!pdf_.IsOpen() || pixels_.empty()) {
-        SetBkMode(hdc, TRANSPARENT); SetTextColor(hdc, RGB(70,70,70)); RECT body = rc; body.top = kToolbarHeight;
-        DrawTextW(hdc, L"打开 PDF", -1, &body, DT_CENTER | DT_VCENTER | DT_SINGLELINE); return;
-    }
-    const int viewportTop = kToolbarHeight, viewportBottom = static_cast<int>(rc.bottom); const int availableW = static_cast<int>(rc.right) - 20;
-    const int x = (std::max)(10, (availableW - renderWidth_) / 2); const int y = viewportTop + 10 - scrollY_;
-    if (y < viewportBottom && y + renderHeight_ > viewportTop) {
-        BITMAPINFO bmi{}; bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER); bmi.bmiHeader.biWidth = renderWidth_; bmi.bmiHeader.biHeight = -renderHeight_;
-        bmi.bmiHeader.biPlanes = 1; bmi.bmiHeader.biBitCount = 32; bmi.bmiHeader.biCompression = BI_RGB;
-        StretchDIBits(hdc, x, y, renderWidth_, renderHeight_, 0,0,renderWidth_,renderHeight_,pixels_.data(),&bmi,DIB_RGB_COLORS,SRCCOPY);
-    }
-}
+void AppWindow::ChangeZoom(double factor) { zoom_ = std::clamp(zoom_ * factor, 0.25, 5.0); RenderCurrentPage(); }
+void AppWindow::FitWidth() { fitWidth_ = true; RenderCurrentPage(); }
+void AppWindow::GoPage(int delta) { if (!pdf_.IsOpen()) return; pageIndex_ = std::clamp(pageIndex_ + delta, 0, pdf_.PageCount() - 1); scrollY_ = 0; RenderCurrentPage(); }
+void AppWindow::SetInvert(bool enabled) { invert_ = enabled; invertSettings_.enabled = enabled; RenderCurrentPage(); }
