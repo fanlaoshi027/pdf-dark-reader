@@ -5,6 +5,7 @@
 #include <cstdint>
 #include "PdfDocument.h"
 #include "InvertSettings.h"
+#include "LayerSystem.h"
 
 class AppWindow {
 public:
@@ -28,16 +29,21 @@ private:
     void GoPage(int delta);
     void ChooseBackground();
     void FitPage();
+    void FitWidth();
+    void ShowLayerMenu();
+    void UpdateLayerGeometry();
 
     HWND hwnd_ = nullptr;
     HINSTANCE instance_ = nullptr;
     PdfDocument pdf_;
+    LayerSystem layers_;
     std::vector<std::uint8_t> pixels_;
     int pageIndex_ = 0;
     int renderWidth_ = 0;
     int renderHeight_ = 0;
     int scrollY_ = 0;
     double zoom_ = 1.0;
+    bool fitWidth_ = false;
     bool invert_ = false;
     InvertSettings invertSettings_;
 
@@ -48,7 +54,9 @@ private:
     HWND zoomLabel_ = nullptr;
     HWND zoomInButton_ = nullptr;
     HWND fitButton_ = nullptr;
+    HWND fitWidthButton_ = nullptr;
     HWND invertButton_ = nullptr;
     HWND colorButton_ = nullptr;
+    HWND layerButton_ = nullptr;
     HWND pageLabel_ = nullptr;
 };
