@@ -1,6 +1,7 @@
 #include "AppWindow.h"
 #include <algorithm>
 #include <windowsx.h>
+#include <commdlg.h>
 
 namespace {
 constexpr wchar_t kClassName[] = L"PDFDarkReaderWindow";
@@ -98,13 +99,13 @@ void AppWindow::OpenPdf() {
 void AppWindow::RenderCurrentPage() {
     if (!pdf_.IsOpen()) return;
     RECT rc{}; GetClientRect(hwnd_, &rc);
-    const int availableW = std::max(200, rc.right - 40);
-    const int availableH = std::max(200, rc.bottom - 80);
+    const int availableW = (std::max)(200, static_cast<int>(rc.right - 40));
+    const int availableH = (std::max)(200, static_cast<int>(rc.bottom - 80));
     float pageW = 1, pageH = 1;
     if (!pdf_.PageSize(pageIndex_, pageW, pageH)) return;
     const double scale = std::min(static_cast<double>(availableW) / pageW, static_cast<double>(availableH) / pageH);
-    renderWidth_ = std::max(1, static_cast<int>(pageW * scale));
-    renderHeight_ = std::max(1, static_cast<int>(pageH * scale));
+    renderWidth_ = (std::max)(1, static_cast<int>(pageW * scale));
+    renderHeight_ = (std::max)(1, static_cast<int>(pageH * scale));
     if (!pdf_.RenderPage(pageIndex_, renderWidth_, renderHeight_, pixels_)) return;
     ApplyInvert();
 }
