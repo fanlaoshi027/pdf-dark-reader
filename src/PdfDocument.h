@@ -14,6 +14,7 @@ public:
     void Close();
     bool IsOpen() const { return document_ != nullptr; }
     int PageCount() const;
+    bool PageSize(int index, float& width, float& height) const;
     bool RenderPage(int index, int width, int height, std::vector<std::uint8_t>& pixels) const;
 private:
     FPDF_DOCUMENT document_ = nullptr;
