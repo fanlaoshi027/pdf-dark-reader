@@ -26,6 +26,8 @@ private:
     void ScrollBy(int delta);
     void SetInvert(bool enabled);
     void GoPage(int delta);
+    void ChooseBackground();
+    void FitPage();
 
     HWND hwnd_ = nullptr;
     HINSTANCE instance_ = nullptr;
@@ -35,7 +37,6 @@ private:
     int renderWidth_ = 0;
     int renderHeight_ = 0;
     int scrollY_ = 0;
-    int viewportTop_ = 46;
     double zoom_ = 1.0;
     bool invert_ = false;
     InvertSettings invertSettings_;
@@ -48,5 +49,6 @@ private:
     HWND zoomInButton_ = nullptr;
     HWND fitButton_ = nullptr;
     HWND invertButton_ = nullptr;
+    HWND colorButton_ = nullptr;
     HWND pageLabel_ = nullptr;
 };
