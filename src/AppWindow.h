@@ -21,9 +21,11 @@ private:
     void CreateToolbar();
     void LayoutToolbar(int width);
     void UpdateScrollBar();
+    void UpdateToolbarText();
     void ChangeZoom(double factor);
     void ScrollBy(int delta);
     void SetInvert(bool enabled);
+    void GoPage(int delta);
 
     HWND hwnd_ = nullptr;
     HINSTANCE instance_ = nullptr;
@@ -46,4 +48,5 @@ private:
     HWND zoomInButton_ = nullptr;
     HWND fitButton_ = nullptr;
     HWND invertButton_ = nullptr;
+    HWND pageLabel_ = nullptr;
 };
