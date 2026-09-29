@@ -1,7 +1,6 @@
 #pragma once
 #include <windows.h>
 #include <cstddef>
-#include "InkToolState.h"
 
 class AppWindow;
 
