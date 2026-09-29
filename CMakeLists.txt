@@ -3,18 +3,15 @@ project(PDFDarkReader LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
 if(NOT WIN32)
     message(FATAL_ERROR "PDF Dark Reader is currently Windows-only.")
 endif()
-
 set(PDFIUM_DIR "" CACHE PATH "PDFium package directory")
 if(NOT PDFIUM_DIR)
     message(FATAL_ERROR "PDFIUM_DIR must point to a PDFium package containing include/, lib/, and bin/.")
 endif()
 find_path(PDFIUM_INCLUDE_DIR fpdfview.h PATHS "${PDFIUM_DIR}/include" NO_DEFAULT_PATH REQUIRED)
 find_library(PDFIUM_LIBRARY NAMES pdfium pdfium.dll PATHS "${PDFIUM_DIR}/lib" NO_DEFAULT_PATH REQUIRED)
-
 add_executable(PDFDarkReader WIN32
     src/main.cpp
     src/AppWindow.h
@@ -26,6 +23,16 @@ add_executable(PDFDarkReader WIN32
     src/LayerSystem.h
     src/LayerSystem.cpp
     src/MosuanUi.cpp
+    src/MosuanUiState.h
+    src/MosuanUiState.cpp
+    src/MosuanUiPrimitives.h
+    src/MosuanUiPrimitives.cpp
+    src/MosuanUiTopBar.h
+    src/MosuanUiTopBar.cpp
+    src/MosuanUiRightRail.h
+    src/MosuanUiRightRail.cpp
+    src/MosuanUiPanels.h
+    src/MosuanUiPanels.cpp
     src/FavoriteBar.cpp
     src/ToolbarSkin.cpp
     src/TopToolbar.cpp
