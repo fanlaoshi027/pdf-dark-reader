@@ -1,5 +1,6 @@
 #pragma once
 #include <windows.h>
+#include <vector>
 #include "InkDocument.h"
 #include "StrokeDynamics.h"
 #include "StrokeRenderer.h"
@@ -22,6 +23,8 @@ public:
     void Draw(HDC hdc) const;
 
     bool IsDrawing() const { return drawing_; }
+    bool IsSelected(size_t index) const;
+    const std::vector<size_t>& Selection() const { return selectedStrokes_; }
 
 private:
     InkPoint ToInkPoint(POINT viewPoint, float pressure) const;
@@ -35,4 +38,5 @@ private:
     POINT lineStart_{};
     POINT lineEnd_{};
     std::vector<POINT> lasso_;
+    std::vector<size_t> selectedStrokes_;
 };
