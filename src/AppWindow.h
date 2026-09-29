@@ -7,6 +7,8 @@
 #include "PdfDocument.h"
 #include "InvertSettings.h"
 #include "LayerSystem.h"
+#include "InkDocument.h"
+#include "InkEngine.h"
 
 class AppWindow {
 public:
@@ -17,6 +19,7 @@ public:
     HINSTANCE instance() const noexcept { return instance_; }
     PdfDocument& pdf() noexcept { return pdf_; }
     LayerSystem& layers() noexcept { return layers_; }
+    InkEngine& Ink() noexcept { return ink_; }
     const std::vector<std::uint8_t>& pixels() const noexcept { return pixels_; }
     int pageIndex() const noexcept { return pageIndex_; }
     int renderWidth() const noexcept { return renderWidth_; }
@@ -33,7 +36,7 @@ public:
     MosuanTool activeTool() const noexcept { return activeTool_; }
     InvertSettings& invertSettings() noexcept { return invertSettings_; }
 
-    void SetPageIndex(int value) noexcept { pageIndex_ = value; }
+    void SetPageIndex(int value) noexcept { pageIndex_ = value; ink_.SetDocument(&inkDocument_); inkDocument_.SetCurrentPage(value); ink_.Cancel(); }
     void SetRenderSize(int width, int height) noexcept { renderWidth_ = width; renderHeight_ = height; }
     void SetScrollY(int value) noexcept { scrollY_ = value; }
     void SetZoom(double value) noexcept { zoom_ = value; }
@@ -43,12 +46,13 @@ public:
     void SetOneStrokeMode(bool value) noexcept { oneStrokeMode_ = value; }
     void SetPenColorIndex(int value) noexcept { penColorIndex_ = value; }
     void SetPenWidthIndex(int value) noexcept { penWidthIndex_ = value; }
-    void SetActiveTool(MosuanTool value) noexcept { activeTool_ = value; }
+    void SetActiveTool(MosuanTool value) noexcept { activeTool_ = value; ink_.SetTool(value); }
     void SetPixels(std::vector<std::uint8_t> value) { pixels_ = std::move(value); }
 
     void Refresh() noexcept { InvalidateRect(hwnd_, nullptr, FALSE); }
     void UpdateScrollBar();
     void UpdateToolbarText();
+    void SyncInkTransform(int originX, int originY);
 
 private:
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -58,6 +62,8 @@ private:
     HINSTANCE instance_ = nullptr;
     PdfDocument pdf_;
     LayerSystem layers_;
+    InkDocument inkDocument_;
+    InkEngine ink_;
     std::vector<std::uint8_t> pixels_;
     int pageIndex_ = 0;
     int renderWidth_ = 0;
