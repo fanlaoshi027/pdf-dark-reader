@@ -33,6 +33,7 @@ add_executable(PDFDarkReader WIN32
     src/StrokeRenderer.h src/StrokeRenderer.cpp
     src/InkEngine.h src/InkEngine.cpp
     src/InkPageController.h src/InkPageController.cpp
+    src/InkToolState.h src/InkToolState.cpp
     src/MosuanUi.cpp
     src/MosuanUiState.h src/MosuanUiState.cpp
     src/MosuanUiPrimitives.h src/MosuanUiPrimitives.cpp
