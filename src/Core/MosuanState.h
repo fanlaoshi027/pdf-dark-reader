@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include "FavoriteTool.h"
 #include "History.h"
 #include "ToolState.h"
@@ -16,6 +17,7 @@ public:
     const History& HistoryStack() const { return history_; }
 
     bool SaveCurrentAsFavorite() { return favorites_.Add(tools_.brush); }
+    bool SaveCurrentToSlot(std::size_t index) { return favorites_.AddAt(index, tools_.brush); }
 
     bool ActivateFavorite(std::size_t index) {
         const FavoriteTool* favorite = favorites_.Get(index);
