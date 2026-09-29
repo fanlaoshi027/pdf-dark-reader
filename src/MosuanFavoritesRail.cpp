@@ -1,22 +1,19 @@
 #include "MosuanFavoritesRail.h"
 #include "AppWindow.h"
-#include <algorithm>
 
 namespace {
 COLORREF BrushColor(const BrushState& state) {
-    switch (state.colorIndex) {
-    case 1: return RGB(220, 55, 55);
-    case 2: return RGB(55, 105, 225);
-    default: return RGB(235, 235, 235);
+    switch (state.color) {
+    case 0x003737DCu: return RGB(220, 55, 55);
+    case 0x00D25A2Du: return RGB(55, 105, 225);
+    default: return RGB(35, 75, 150);
     }
 }
 
 int BrushWidth(const BrushState& state) {
-    switch (state.widthIndex) {
-    case 1: return 3;
-    case 2: return 5;
-    default: return 2;
-    }
+    if (state.width <= 2.5f) return 2;
+    if (state.width >= 5.5f) return 5;
+    return 3;
 }
 }
 
