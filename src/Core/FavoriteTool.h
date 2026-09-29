@@ -24,6 +24,13 @@ public:
         return false;
     }
 
+    bool AddAt(std::size_t index, const BrushState& state) {
+        if (index >= kMaxSlots) return false;
+        slots_[index].state = state;
+        slots_[index].occupied = true;
+        return true;
+    }
+
     bool Remove(std::size_t index) {
         if (index >= kMaxSlots || !slots_[index].occupied) return false;
         slots_[index] = FavoriteTool{};
