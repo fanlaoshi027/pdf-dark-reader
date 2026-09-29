@@ -11,6 +11,7 @@ struct PdfViewTransform {
     int originY = 0;
     int pageWidth = 0;
     int pageHeight = 0;
+    int scrollY = 0;
 };
 
 struct InkPoint { double pdfX = 0.0; double pdfY = 0.0; float pressure = 0.5f; };
@@ -33,12 +34,10 @@ public:
     void Resize(const RECT& viewport);
     void SetTransform(const PdfViewTransform& transform);
     const PdfViewTransform& Transform() const { return transform_; }
-
     void SetMosuanVisible(bool visible);
     bool MosuanVisible() const { return mosuanVisible_; }
     void SetMosuanActive(bool active) { mosuanActive_ = active; UpdateHitTest(); }
     bool MosuanActive() const { return mosuanActive_; }
-
     void SetTool(MosuanTool tool);
     MosuanTool Tool() const { return tool_; }
     void SetPenEnabled(bool enabled);
@@ -51,10 +50,8 @@ public:
     bool DashMode() const { return dashMode_; }
     void SetOneStrokeMode(bool enabled) { oneStrokeMode_ = enabled; }
     bool OneStrokeMode() const { return oneStrokeMode_; }
-
     POINT PdfToView(double pdfX, double pdfY) const;
     POINT ViewToPdf(int viewX, int viewY) const;
-
     void ResetDocumentLayers();
     int AddInkLayer(const wchar_t* name);
     int CreateNoteLayer(const wchar_t* name) { return AddInkLayer(name); }
@@ -66,16 +63,13 @@ public:
     LayerItem* FindLayer(int id);
     void SetLayerVisible(int id, bool visible);
     void SetLayerLocked(int id, bool locked);
-
     void SetBackgroundVisible(bool visible) { backgroundVisible_ = visible; Invalidate(); }
     bool BackgroundVisible() const { return backgroundVisible_; }
     void SetPdfVisible(bool visible) { pdfVisible_ = visible; Invalidate(); }
     bool PdfVisible() const { return pdfVisible_; }
     void SetActiveLayerId(int id) { SetActiveLayer(id); }
-
     void ClearInk();
     void PaintOverlay(HDC hdc);
-
 private:
     static LRESULT CALLBACK OverlayProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
     void UpdateHitTest();
@@ -89,7 +83,6 @@ private:
     bool StrokeSelected(const InkStroke& stroke) const;
     static float PenWidthPdf(float pressure);
     static float ClampPressure(float pressure);
-
     HWND parent_ = nullptr;
     HWND overlay_ = nullptr;
     PdfViewTransform transform_;
