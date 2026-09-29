@@ -16,7 +16,7 @@ endif()
 find_path(PDFIUM_INCLUDE_DIR fpdfview.h PATHS "${PDFIUM_DIR}/include" NO_DEFAULT_PATH REQUIRED)
 find_library(PDFIUM_LIBRARY NAMES pdfium pdfium.dll PATHS "${PDFIUM_DIR}/lib" NO_DEFAULT_PATH REQUIRED)
 
-# Modular architecture: keep PDF, input, painting, commands and UI regions separate.
+# Keep each responsibility in its own translation unit.
 add_executable(PDFDarkReader WIN32
     src/main.cpp
     src/AppWindow.h
@@ -24,6 +24,7 @@ add_executable(PDFDarkReader WIN32
     src/AppWindowPdf.h
     src/AppWindowPdf.cpp
     src/AppWindowInput.h
+    src/AppWindowInput.cpp
     src/AppWindowCommands.h
     src/AppWindowPaint.h
     src/AppWindowToolbar.h
