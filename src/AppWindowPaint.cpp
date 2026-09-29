@@ -33,6 +33,9 @@ void AppWindowPaint::Paint(AppWindow& app, HDC hdc) {
     StretchDIBits(hdc, x, y, app.renderWidth(), app.renderHeight(), 0, 0,
                   app.renderWidth(), app.renderHeight(), app.pixels().data(),
                   &bmi, DIB_RGB_COLORS, SRCCOPY);
+
+    app.SyncInkTransform(x, y);
+    if (app.layers().MosuanVisible()) app.Ink().Draw(hdc);
 }
 
 void AppWindowPaint::DrawToolbarButton(AppWindow&, const DRAWITEMSTRUCT*) {
