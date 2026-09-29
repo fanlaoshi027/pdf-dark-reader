@@ -34,9 +34,16 @@ add_executable(PDFDarkReader WIN32
     src/InvertSettings.cpp
     src/PdfDocument.h
     src/PdfDocument.cpp
+
     src/LayerSystem.h
     src/LayerSystem.cpp
     src/LayerModel.cpp
+    src/LayerTransform.h
+    src/LayerTransform.cpp
+    src/LayerRenderer.h
+    src/LayerRenderer.cpp
+    src/LayerInput.h
+    src/LayerInput.cpp
 
     src/MosuanUi.cpp
     src/MosuanUiState.h
