@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <vector>
 #include <cstdint>
+#include <utility>
 #include "PdfDocument.h"
 #include "InvertSettings.h"
 #include "LayerSystem.h"
@@ -13,6 +14,7 @@ public:
     int Run();
 
     HWND hwnd() const noexcept { return hwnd_; }
+    HINSTANCE instance() const noexcept { return instance_; }
     PdfDocument& pdf() noexcept { return pdf_; }
     LayerSystem& layers() noexcept { return layers_; }
     const std::vector<std::uint8_t>& pixels() const noexcept { return pixels_; }
@@ -21,6 +23,7 @@ public:
     int renderHeight() const noexcept { return renderHeight_; }
     int scrollY() const noexcept { return scrollY_; }
     double zoom() const noexcept { return zoom_; }
+    bool fitWidth() const noexcept { return fitWidth_; }
     bool fitWidthEnabled() const noexcept { return fitWidth_; }
     bool invertEnabled() const noexcept { return invert_; }
     bool dashMode() const noexcept { return dashMode_; }
