@@ -22,6 +22,14 @@ find_library(PDFIUM_LIBRARY NAMES pdfium pdfium.dll PATHS "${PDFIUM_DIR}/lib" NO
 add_executable(PDFDarkReader WIN32
     src/main.cpp
     src/Core/InkTypes.h
+    src/Core/BrushState.h
+    src/Core/ToolState.h
+    src/Core/FavoriteTool.h
+    src/Core/CoordinateTransform.h
+    src/Core/InkEngine.h
+    src/Core/History.h
+    src/Core/MosuanState.h
+    src/Core/InkToolStateAdapter.h
     src/AppWindow.h src/AppWindow.cpp
     src/AppWindowPdf.h src/AppWindowPdf.cpp
     src/AppWindowInput.h src/AppWindowInput.cpp src/AppWindowMouse.cpp
