@@ -1,6 +1,7 @@
 #include "AppWindowCommands.h"
 #include "AppWindow.h"
 #include "AppWindowPdf.h"
+#include "Core/FavoriteTool.h"
 #include <windows.h>
 
 namespace {
@@ -41,11 +42,11 @@ LRESULT AppWindowCommands::Execute(AppWindow& app, int id) {
     case ID_DASH: app.SetDashMode(!app.dashMode()); app.ApplyInkState(); app.Refresh(); return 0;
     case ID_ONE_STROKE: app.SetOneStrokeMode(!app.oneStrokeMode()); app.ApplyInkState(); app.Refresh(); return 0;
     default:
-        if (id >= ID_SLOT_BASE && id < ID_SLOT_BASE + static_cast<int>(InkToolState::kSlotCount)) {
+        if (id >= ID_SLOT_BASE && id < ID_SLOT_BASE + static_cast<int>(FavoriteToolStore::kMaxSlots)) {
             app.LoadInkSlot(static_cast<std::size_t>(id - ID_SLOT_BASE));
             app.Refresh(); return 0;
         }
-        if (id >= ID_SLOT_SAVE_BASE && id < ID_SLOT_SAVE_BASE + static_cast<int>(InkToolState::kSlotCount)) {
+        if (id >= ID_SLOT_SAVE_BASE && id < ID_SLOT_SAVE_BASE + static_cast<int>(FavoriteToolStore::kMaxSlots)) {
             app.SaveInkSlot(static_cast<std::size_t>(id - ID_SLOT_SAVE_BASE));
             return 0;
         }
