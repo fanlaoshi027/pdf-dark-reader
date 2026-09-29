@@ -1,5 +1,6 @@
 #include "AppWindowPaint.h"
 #include "AppWindow.h"
+#include "MosuanFavoritesRail.h"
 #include <algorithm>
 
 namespace { constexpr int kToolbarHeight = 70; }
@@ -12,30 +13,32 @@ void AppWindowPaint::Paint(AppWindow& app, HDC hdc) {
     HBRUSH brush = CreateSolidBrush(background); FillRect(hdc, &rc, brush); DeleteObject(brush);
 
     if (!app.pdf().IsOpen() || app.pixels().empty()) {
-        RECT body{0, kToolbarHeight, rc.right, rc.bottom};
+        RECT body{0, kToolbarHeight, rc.right - MosuanFavoritesRail::kWidth, rc.bottom};
         SetBkMode(hdc, TRANSPARENT); SetTextColor(hdc, RGB(80,80,80));
         DrawTextW(hdc, L"打开 PDF", -1, &body, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        MosuanFavoritesRail::Paint(app, hdc, rc);
         return;
     }
 
-    const int availableW = (std::max)(1, static_cast<int>(rc.right) - 20);
+    const int contentRight = rc.right - MosuanFavoritesRail::kWidth;
+    const int availableW = (std::max)(1, contentRight - 20);
     const int x = (std::max)(10, (availableW - app.renderWidth()) / 2);
     const int y = kToolbarHeight + 10 - app.scrollY();
-    if (y >= rc.bottom || y + app.renderHeight() <= kToolbarHeight) return;
-
-    BITMAPINFO bmi{};
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = app.renderWidth();
-    bmi.bmiHeader.biHeight = -app.renderHeight();
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-    StretchDIBits(hdc, x, y, app.renderWidth(), app.renderHeight(), 0, 0,
-                  app.renderWidth(), app.renderHeight(), app.pixels().data(),
-                  &bmi, DIB_RGB_COLORS, SRCCOPY);
-
-    app.SyncInkTransform(x, y);
-    if (app.layers().MosuanVisible()) app.Ink().Draw(hdc);
+    if (y < rc.bottom && y + app.renderHeight() > kToolbarHeight) {
+        BITMAPINFO bmi{};
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth = app.renderWidth();
+        bmi.bmiHeader.biHeight = -app.renderHeight();
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = BI_RGB;
+        StretchDIBits(hdc, x, y, app.renderWidth(), app.renderHeight(), 0, 0,
+                      app.renderWidth(), app.renderHeight(), app.pixels().data(),
+                      &bmi, DIB_RGB_COLORS, SRCCOPY);
+        app.SyncInkTransform(x, y);
+        if (app.layers().MosuanVisible()) app.Ink().Draw(hdc);
+    }
+    MosuanFavoritesRail::Paint(app, hdc, rc);
 }
 
 void AppWindowPaint::DrawToolbarButton(AppWindow&, const DRAWITEMSTRUCT*) {
