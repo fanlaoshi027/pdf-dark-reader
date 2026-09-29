@@ -13,20 +13,20 @@ if(NOT PDFIUM_DIR)
     message(FATAL_ERROR "PDFIUM_DIR must point to a PDFium package containing include/, lib/, and bin/.")
 endif()
 
-find_path(PDFIUM_INCLUDE_DIR fpdfview.h
-    PATHS "${PDFIUM_DIR}/include"
-    NO_DEFAULT_PATH REQUIRED)
-find_library(PDFIUM_LIBRARY
-    NAMES pdfium pdfium.dll
-    PATHS "${PDFIUM_DIR}/lib"
-    NO_DEFAULT_PATH REQUIRED)
+find_path(PDFIUM_INCLUDE_DIR fpdfview.h PATHS "${PDFIUM_DIR}/include" NO_DEFAULT_PATH REQUIRED)
+find_library(PDFIUM_LIBRARY NAMES pdfium pdfium.dll PATHS "${PDFIUM_DIR}/lib" NO_DEFAULT_PATH REQUIRED)
 
-# Keep the application modular: PDF, layers, and each UI region live in
-# separate translation units. Legacy toolbar source files are no longer built.
+# Modular architecture: keep PDF, input, painting, commands and UI regions separate.
 add_executable(PDFDarkReader WIN32
     src/main.cpp
     src/AppWindow.h
     src/AppWindow.cpp
+    src/AppWindowPdf.h
+    src/AppWindowPdf.cpp
+    src/AppWindowInput.h
+    src/AppWindowCommands.h
+    src/AppWindowPaint.h
+    src/AppWindowToolbar.h
 
     src/InvertSettings.h
     src/InvertSettings.cpp
@@ -49,11 +49,9 @@ add_executable(PDFDarkReader WIN32
 )
 
 target_include_directories(PDFDarkReader PRIVATE "${PDFIUM_INCLUDE_DIR}")
-target_compile_definitions(PDFDarkReader PRIVATE
-    UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
+target_compile_definitions(PDFDarkReader PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
 target_compile_options(PDFDarkReader PRIVATE /utf-8)
-target_link_libraries(PDFDarkReader PRIVATE
-    "${PDFIUM_LIBRARY}" user32 gdi32 shell32 comdlg32)
+target_link_libraries(PDFDarkReader PRIVATE "${PDFIUM_LIBRARY}" user32 gdi32 shell32 comdlg32)
 
 add_custom_command(TARGET PDFDarkReader POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
