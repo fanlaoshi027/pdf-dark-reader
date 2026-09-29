@@ -1,11 +1,9 @@
 #pragma once
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
 #include "MosuanState.h"
 
 // Compatibility bridge while the Windows UI migrates away from InkToolState.
-// New application code should use MosuanState directly.
+// New code should use MosuanState directly.
 class InkToolStateAdapter {
 public:
     explicit InkToolStateAdapter(MosuanState& state) : state_(state) {}
@@ -15,25 +13,27 @@ public:
 
     int ColorIndex() const {
         switch (state_.Tools().brush.color) {
-        case kRed: return 1;
-        case kBlue: return 2;
+        case 0x003737DCu: return 1;
+        case 0x00D25A2Du: return 2;
         default: return 0;
         }
     }
     void SetColorIndex(int index) {
         index = (std::max)(0, (std::min)(2, index));
-        state_.Tools().brush.color = index == 1 ? kRed : (index == 2 ? kBlue : kBlack);
+        static constexpr uint32_t colors[] = {0x00232323u, 0x003737DCu, 0x00D25A2Du};
+        state_.Tools().brush.color = colors[index];
     }
 
     int WidthIndex() const {
         const float width = state_.Tools().brush.width;
+        if (width <= 2.5f) return 0;
         if (width >= 5.5f) return 2;
-        if (width <= 3.0f) return 0;
         return 1;
     }
     void SetWidthIndex(int index) {
         index = (std::max)(0, (std::min)(2, index));
-        state_.Tools().brush.width = index == 0 ? 2.0f : (index == 2 ? 7.0f : 4.0f);
+        static constexpr float widths[] = {2.0f, 4.0f, 7.0f};
+        state_.Tools().brush.width = widths[index];
     }
 
     bool Dashed() const { return state_.Tools().brush.dashed; }
@@ -46,8 +46,5 @@ public:
     bool LoadSlot(std::size_t slot) { return state_.ActivateFavorite(slot); }
 
 private:
-    static constexpr std::uint32_t kBlack = 0x00232323;
-    static constexpr std::uint32_t kRed   = 0x00DC3737;
-    static constexpr std::uint32_t kBlue  = 0x002D5AD2;
     MosuanState& state_;
 };
