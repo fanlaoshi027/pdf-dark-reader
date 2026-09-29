@@ -25,6 +25,7 @@ add_executable(PDFDarkReader WIN32
     src/PdfDocument.cpp
     src/LayerSystem.h
     src/LayerSystem.cpp
+    src/MosuanUi.cpp
     src/FavoriteBar.cpp
     src/ToolbarSkin.cpp
     src/TopToolbar.cpp
