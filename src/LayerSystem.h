@@ -5,6 +5,7 @@
 #include <vector>
 #include "Core/InkTypes.h"
 
+// Windows adapter. Platform-neutral ink/tool data lives in Core/InkTypes.h.
 struct LayerItem { int id=0; LayerKind kind=LayerKind::Ink; wchar_t name[64]=L"笔记"; bool visible=true; bool locked=false; };
 
 class LayerSystem {
