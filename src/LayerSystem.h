@@ -1,6 +1,7 @@
 #pragma once
 
 #include <windows.h>
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -42,11 +43,18 @@ public:
     MosuanTool Tool() const { return tool_; }
     void SetPenEnabled(bool enabled);
     bool PenEnabled() const { return penEnabled_; }
+    void SetPenColor(COLORREF color) { penColor_ = color; Invalidate(); }
+    COLORREF PenColor() const { return penColor_; }
+    void SetPenWidth(float width) { penWidth_ = (std::max)(0.5f, width); Invalidate(); }
+    float PenWidth() const { return penWidth_; }
+    void SetDashMode(bool dashed) { dashMode_ = dashed; Invalidate(); }
+    bool DashMode() const { return dashMode_; }
+    void SetOneStrokeMode(bool enabled) { oneStrokeMode_ = enabled; }
+    bool OneStrokeMode() const { return oneStrokeMode_; }
 
     POINT PdfToView(double pdfX, double pdfY) const;
     POINT ViewToPdf(int viewX, int viewY) const;
 
-    // Document layer model: Background -> PDF -> Ink layers.
     void ResetDocumentLayers();
     int AddInkLayer(const wchar_t* name);
     bool RemoveLayer(int id);
@@ -63,6 +71,7 @@ public:
 private:
     static LRESULT CALLBACK OverlayProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
     void UpdateHitTest();
+    void Invalidate() { if (overlay_) InvalidateRect(overlay_, nullptr, FALSE); }
     void BeginPen(UINT32 pointerId, POINT screenPoint, float pressure);
     void UpdatePen(UINT32 pointerId, POINT screenPoint, float pressure);
     void EndPen(UINT32 pointerId);
@@ -81,14 +90,15 @@ private:
     bool penEnabled_ = true;
     UINT32 activePointerId_ = 0;
     bool penDown_ = false;
-
     std::vector<LayerItem> layers_;
     int activeLayerId_ = 3;
     int nextLayerId_ = 4;
-
     std::vector<InkStroke> strokes_;
     std::vector<POINT> lassoPoints_;
     std::vector<size_t> selectedStrokes_;
     MosuanTool tool_ = MosuanTool::Pen;
     COLORREF penColor_ = RGB(35, 75, 150);
+    float penWidth_ = 2.0f;
+    bool dashMode_ = false;
+    bool oneStrokeMode_ = true;
 };
