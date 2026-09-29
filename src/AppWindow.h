@@ -9,6 +9,7 @@
 #include "LayerSystem.h"
 #include "InkDocument.h"
 #include "InkEngine.h"
+#include "InkToolState.h"
 
 class AppWindow {
 public:
@@ -20,6 +21,7 @@ public:
     PdfDocument& pdf() noexcept { return pdf_; }
     LayerSystem& layers() noexcept { return layers_; }
     InkEngine& Ink() noexcept { return ink_; }
+    InkToolState& InkState() noexcept { return inkState_; }
     const std::vector<std::uint8_t>& pixels() const noexcept { return pixels_; }
     int pageIndex() const noexcept { return pageIndex_; }
     int renderWidth() const noexcept { return renderWidth_; }
@@ -29,11 +31,11 @@ public:
     bool fitWidth() const noexcept { return fitWidth_; }
     bool fitWidthEnabled() const noexcept { return fitWidth_; }
     bool invertEnabled() const noexcept { return invert_; }
-    bool dashMode() const noexcept { return dashMode_; }
-    bool oneStrokeMode() const noexcept { return oneStrokeMode_; }
-    int penColorIndex() const noexcept { return penColorIndex_; }
-    int penWidthIndex() const noexcept { return penWidthIndex_; }
-    MosuanTool activeTool() const noexcept { return activeTool_; }
+    bool dashMode() const noexcept { return inkState_.Dashed(); }
+    bool oneStrokeMode() const noexcept { return inkState_.OneStroke(); }
+    int penColorIndex() const noexcept { return inkState_.ColorIndex(); }
+    int penWidthIndex() const noexcept { return inkState_.WidthIndex(); }
+    MosuanTool activeTool() const noexcept { return inkState_.Tool(); }
     InvertSettings& invertSettings() noexcept { return invertSettings_; }
 
     void SetPageIndex(int value) noexcept { pageIndex_ = value; ink_.SetDocument(&inkDocument_); inkDocument_.SetCurrentPage(value); ink_.Cancel(); }
@@ -42,12 +44,16 @@ public:
     void SetZoom(double value) noexcept { zoom_ = value; }
     void SetFitWidth(bool value) noexcept { fitWidth_ = value; }
     void SetInvertState(bool value) noexcept { invert_ = value; }
-    void SetDashMode(bool value) noexcept { dashMode_ = value; }
-    void SetOneStrokeMode(bool value) noexcept { oneStrokeMode_ = value; }
-    void SetPenColorIndex(int value) noexcept { penColorIndex_ = value; }
-    void SetPenWidthIndex(int value) noexcept { penWidthIndex_ = value; }
-    void SetActiveTool(MosuanTool value) noexcept { activeTool_ = value; ink_.SetTool(value); }
+    void SetDashMode(bool value) noexcept { inkState_.SetDash(value); }
+    void SetOneStrokeMode(bool value) noexcept { inkState_.SetOneStroke(value); }
+    void SetPenColorIndex(int value) noexcept { inkState_.SetColorIndex(value); }
+    void SetPenWidthIndex(int value) noexcept { inkState_.SetWidthIndex(value); }
+    void SetActiveTool(MosuanTool value) noexcept { activeTool_ = value; inkState_.SetTool(value); ink_.SetTool(value); }
     void SetPixels(std::vector<std::uint8_t> value) { pixels_ = std::move(value); }
+
+    void ApplyInkState() noexcept { ink_.SetTool(inkState_.Tool()); ink_.SetStyle(inkState_.Style()); ink_.SetLayer(layers_.ActiveLayerId()); }
+    void SaveInkSlot(std::size_t slot) noexcept { inkState_.SaveSlot(slot); }
+    void LoadInkSlot(std::size_t slot) noexcept { inkState_.LoadSlot(slot); ApplyInkState(); }
 
     void Refresh() noexcept { InvalidateRect(hwnd_, nullptr, FALSE); }
     void UpdateScrollBar();
@@ -64,6 +70,7 @@ private:
     LayerSystem layers_;
     InkDocument inkDocument_;
     InkEngine ink_;
+    InkToolState inkState_;
     std::vector<std::uint8_t> pixels_;
     int pageIndex_ = 0;
     int renderWidth_ = 0;
