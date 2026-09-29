@@ -14,7 +14,17 @@ struct PdfViewTransform {
 
 struct InkPoint { double pdfX = 0.0; double pdfY = 0.0; float pressure = 0.5f; };
 struct InkStroke { std::vector<InkPoint> points; };
+
 enum class MosuanTool { Pen, Line, Eraser, Lasso };
+enum class LayerKind { Background, Pdf, Ink };
+
+struct LayerItem {
+    int id = 0;
+    LayerKind kind = LayerKind::Ink;
+    wchar_t name[64] = L"笔记";
+    bool visible = true;
+    bool locked = false;
+};
 
 class LayerSystem {
 public:
@@ -22,16 +32,31 @@ public:
     void Resize(const RECT& viewport);
     void SetTransform(const PdfViewTransform& transform);
     const PdfViewTransform& Transform() const { return transform_; }
+
     void SetMosuanVisible(bool visible);
     bool MosuanVisible() const { return mosuanVisible_; }
     void SetMosuanActive(bool active) { mosuanActive_ = active; UpdateHitTest(); }
     bool MosuanActive() const { return mosuanActive_; }
-    POINT PdfToView(double pdfX, double pdfY) const;
-    POINT ViewToPdf(int viewX, int viewY) const;
+
     void SetTool(MosuanTool tool);
     MosuanTool Tool() const { return tool_; }
     void SetPenEnabled(bool enabled);
     bool PenEnabled() const { return penEnabled_; }
+
+    POINT PdfToView(double pdfX, double pdfY) const;
+    POINT ViewToPdf(int viewX, int viewY) const;
+
+    // Document layer model: Background -> PDF -> Ink layers.
+    void ResetDocumentLayers();
+    int AddInkLayer(const wchar_t* name);
+    bool RemoveLayer(int id);
+    bool SetActiveLayer(int id);
+    int ActiveLayerId() const { return activeLayerId_; }
+    const std::vector<LayerItem>& Layers() const { return layers_; }
+    LayerItem* FindLayer(int id);
+    void SetLayerVisible(int id, bool visible);
+    void SetLayerLocked(int id, bool locked);
+
     void ClearInk();
     void PaintOverlay(HDC hdc);
 
@@ -56,6 +81,11 @@ private:
     bool penEnabled_ = true;
     UINT32 activePointerId_ = 0;
     bool penDown_ = false;
+
+    std::vector<LayerItem> layers_;
+    int activeLayerId_ = 3;
+    int nextLayerId_ = 4;
+
     std::vector<InkStroke> strokes_;
     std::vector<POINT> lassoPoints_;
     std::vector<size_t> selectedStrokes_;
