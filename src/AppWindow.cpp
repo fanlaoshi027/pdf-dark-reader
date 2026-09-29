@@ -25,7 +25,12 @@ bool AppWindow::Create(HINSTANCE instance) {
     hwnd_ = CreateWindowExW(0, kClassName, kTitle, WS_OVERLAPPEDWINDOW | WS_VSCROLL,
         CW_USEDEFAULT, CW_USEDEFAULT, 1200, 850, nullptr, nullptr, instance, this);
     if (!hwnd_) return false;
-    layers_.Create(hwnd_); layers_.SetTool(MosuanTool::Pen);
+    layers_.Create(hwnd_);
+    layers_.SetTool(MosuanTool::Pen);
+    ink_.SetDocument(&inkDocument_);
+    inkDocument_.SetCurrentPage(pageIndex_);
+    ink_.SetLayer(layers_.ActiveLayerId());
+    ink_.SetTool(MosuanTool::Pen);
     ShowWindow(hwnd_, SW_SHOW); UpdateWindow(hwnd_); return true;
 }
 
@@ -49,6 +54,9 @@ LRESULT AppWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
     case WM_KEYDOWN: if (AppWindowInput::HandleKey(*this, wParam) == 0) return 0; break;
     case WM_MOUSEWHEEL: return AppWindowInput::HandleMouseWheel(*this, wParam);
     case WM_VSCROLL: return AppWindowInput::HandleVScroll(*this, wParam);
+    case WM_LBUTTONDOWN: return AppWindowInput::HandleLButtonDown(*this, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
+    case WM_MOUSEMOVE: return AppWindowInput::HandleMouseMove(*this, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
+    case WM_LBUTTONUP: return AppWindowInput::HandleLButtonUp(*this, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
     case WM_SIZE: if (pdf_.IsOpen()) AppWindowPdf::Render(*this); return 0;
     case WM_PAINT: { PAINTSTRUCT ps{}; HDC hdc = BeginPaint(hwnd_, &ps); AppWindowPaint::Paint(*this, hdc); EndPaint(hwnd_, &ps); return 0; }
     case WM_MOSUAN_NOTE_VIS:
@@ -56,6 +64,18 @@ LRESULT AppWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
     case WM_DESTROY: PostQuitMessage(0); return 0;
     }
     return DefWindowProcW(hwnd_, message, wParam, lParam);
+}
+
+void AppWindow::SyncInkTransform(int originX, int originY) {
+    PdfViewTransform t{};
+    t.scale = zoom_;
+    t.originX = originX;
+    t.originY = originY;
+    t.pageWidth = renderWidth_;
+    t.pageHeight = renderHeight_;
+    ink_.SetTransform(t);
+    ink_.SetLayer(layers_.ActiveLayerId());
+    ink_.SetTool(activeTool_);
 }
 
 void AppWindow::UpdateScrollBar() {
