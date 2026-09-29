@@ -3,12 +3,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <vector>
+#include "Core/InkTypes.h"
 
-struct PdfViewTransform { double scale=1.0; int originX=0; int originY=0; int pageWidth=0; int pageHeight=0; int scrollY=0; };
-struct InkPoint { double pdfX=0.0; double pdfY=0.0; float pressure=0.5f; };
-struct InkStroke { std::vector<InkPoint> points; };
-enum class MosuanTool { Pen, Line, Eraser, Lasso };
-enum class LayerKind { Background, Pdf, Ink };
 struct LayerItem { int id=0; LayerKind kind=LayerKind::Ink; wchar_t name[64]=L"笔记"; bool visible=true; bool locked=false; };
 
 class LayerSystem {
