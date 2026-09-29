@@ -27,7 +27,8 @@ void MosuanFavoritesRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
     HPEN border = CreatePen(PS_SOLID, 1, RGB(55, 58, 65));
     HGDIOBJ oldPen = SelectObject(hdc, border);
     MoveToEx(hdc, left, 0, nullptr); LineTo(hdc, left, client.bottom);
-    SelectObject(hdc, oldPen); DeleteObject(border);
+    SelectObject(hdc, oldPen);
+    DeleteObject(border);
 
     const auto& favorites = app.Mosuan().Favorites();
     for (std::size_t i = 0; i < FavoriteToolStore::kMaxSlots; ++i) {
@@ -59,8 +60,10 @@ void MosuanFavoritesRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
 
     RECT layerButton{left + 5, client.bottom - 50, client.right - 5, client.bottom - 8};
     HBRUSH layerBrush = CreateSolidBrush(RGB(31, 34, 40));
-    FillRect(hdc, &layerButton, layerBrush); DeleteObject(layerBrush);
-    SetBkMode(hdc, TRANSPARENT); SetTextColor(hdc, RGB(205, 210, 218));
+    FillRect(hdc, &layerButton, layerBrush);
+    DeleteObject(layerBrush);
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, RGB(205, 210, 218));
     DrawTextW(hdc, L"≡", -1, &layerButton, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 }
 
@@ -68,15 +71,31 @@ bool MosuanFavoritesRail::HitTest(const RECT& client, int x, int y, std::size_t&
     const int left = client.right - kWidth;
     if (x < left || x >= client.right) return false;
     if (y >= client.bottom - 56 || y < 8) return false;
+
     const int index = (y - 8) / kSlotHeight;
     if (index < 0 || index >= static_cast<int>(FavoriteToolStore::kMaxSlots)) return false;
+
     slot = static_cast<std::size_t>(index);
+    const auto* favorite = nullptr;
+    // HitTest has no AppWindow reference, so the caller decides whether an empty
+    // slot means save or an occupied slot means load.
     save = false;
     return true;
 }
 
 void MosuanFavoritesRail::Activate(AppWindow& app, std::size_t slot, bool save) {
     if (slot >= FavoriteToolStore::kMaxSlots) return;
-    if (save) app.SaveInkSlot(slot); else app.LoadInkSlot(slot);
+
+    if (save) {
+        app.SaveInkSlot(slot);
+    } else {
+        const auto* favorite = app.Mosuan().Favorites().Get(slot);
+        if (!favorite || !favorite->occupied) {
+            app.SaveInkSlot(slot);
+        } else {
+            app.LoadInkSlot(slot);
+        }
+    }
+
     app.Refresh();
 }
