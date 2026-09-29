@@ -29,6 +29,8 @@ add_executable(PDFDarkReader WIN32
     src/LayerRenderer.h src/LayerRenderer.cpp
     src/LayerInput.h src/LayerInput.cpp
     src/InkDocument.h src/InkDocument.cpp
+    src/StrokeDynamics.h src/StrokeDynamics.cpp
+    src/StrokeRenderer.h src/StrokeRenderer.cpp
     src/MosuanUi.cpp
     src/MosuanUiState.h src/MosuanUiState.cpp
     src/MosuanUiPrimitives.h src/MosuanUiPrimitives.cpp
