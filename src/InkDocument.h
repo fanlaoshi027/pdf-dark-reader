@@ -1,18 +1,21 @@
 #pragma once
-#include <cstddef>
 #include <vector>
 #include "LayerSystem.h"
 
-struct PageInk {
+struct InkPageData {
     int pageIndex = 0;
-    std::vector<InkStroke> strokes;
+    struct LayerInk {
+        int layerId = 0;
+        std::vector<InkStroke> strokes;
+    };
+    std::vector<LayerInk> layers;
 };
 
 class InkDocument {
 public:
     void Clear();
-    PageInk& Page(int pageIndex);
-    const PageInk* FindPage(int pageIndex) const;
+    InkPageData& Page(int pageIndex);
+    const InkPageData* FindPage(int pageIndex) const;
     void SetCurrentPage(int pageIndex);
     int CurrentPage() const { return currentPage_; }
     void AddStroke(int layerId, InkStroke stroke);
@@ -20,14 +23,6 @@ public:
     void ClearLayer(int pageIndex, int layerId);
 
 private:
-    struct LayerInk {
-        int layerId = 0;
-        std::vector<InkStroke> strokes;
-    };
-    struct PageData {
-        int pageIndex = 0;
-        std::vector<LayerInk> layers;
-    };
-    std::vector<PageData> pages_;
+    std::vector<InkPageData> pages_;
     int currentPage_ = 0;
 };
