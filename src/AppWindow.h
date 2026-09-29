@@ -12,28 +12,44 @@ public:
     bool Create(HINSTANCE instance);
     int Run();
 
+    HWND hwnd() const noexcept { return hwnd_; }
+    PdfDocument& pdf() noexcept { return pdf_; }
+    LayerSystem& layers() noexcept { return layers_; }
+    const std::vector<std::uint8_t>& pixels() const noexcept { return pixels_; }
+    int pageIndex() const noexcept { return pageIndex_; }
+    int renderWidth() const noexcept { return renderWidth_; }
+    int renderHeight() const noexcept { return renderHeight_; }
+    int scrollY() const noexcept { return scrollY_; }
+    double zoom() const noexcept { return zoom_; }
+    bool fitWidthEnabled() const noexcept { return fitWidth_; }
+    bool invertEnabled() const noexcept { return invert_; }
+    bool dashMode() const noexcept { return dashMode_; }
+    bool oneStrokeMode() const noexcept { return oneStrokeMode_; }
+    int penColorIndex() const noexcept { return penColorIndex_; }
+    int penWidthIndex() const noexcept { return penWidthIndex_; }
+    MosuanTool activeTool() const noexcept { return activeTool_; }
+    InvertSettings& invertSettings() noexcept { return invertSettings_; }
+
+    void SetPageIndex(int value) noexcept { pageIndex_ = value; }
+    void SetRenderSize(int width, int height) noexcept { renderWidth_ = width; renderHeight_ = height; }
+    void SetScrollY(int value) noexcept { scrollY_ = value; }
+    void SetZoom(double value) noexcept { zoom_ = value; }
+    void SetFitWidth(bool value) noexcept { fitWidth_ = value; }
+    void SetInvertState(bool value) noexcept { invert_ = value; }
+    void SetDashMode(bool value) noexcept { dashMode_ = value; }
+    void SetOneStrokeMode(bool value) noexcept { oneStrokeMode_ = value; }
+    void SetPenColorIndex(int value) noexcept { penColorIndex_ = value; }
+    void SetPenWidthIndex(int value) noexcept { penWidthIndex_ = value; }
+    void SetActiveTool(MosuanTool value) noexcept { activeTool_ = value; }
+    void SetPixels(std::vector<std::uint8_t> value) { pixels_ = std::move(value); }
+
+    void Refresh() noexcept { InvalidateRect(hwnd_, nullptr, FALSE); }
+    void UpdateScrollBar();
+    void UpdateToolbarText();
+
 private:
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
     LRESULT HandleMessage(UINT message, WPARAM wParam, LPARAM lParam);
-    void Paint(HDC hdc);
-    void DrawToolbarButton(const DRAWITEMSTRUCT* dis);
-    void OpenPdf();
-    void RenderCurrentPage();
-    void ApplyInvert();
-    void CreateToolbar();
-    void LayoutToolbar(int width);
-    void UpdateScrollBar();
-    void UpdateToolbarText();
-    void ChangeZoom(double factor);
-    void ScrollBy(int delta);
-    void SetInvert(bool enabled);
-    void GoPage(int delta);
-    void ChooseBackground();
-    void FitPage();
-    void FitWidth();
-    void ShowLayerMenu();
-    void UpdateLayerGeometry();
-    void SetMosuanTool(MosuanTool tool);
 
     HWND hwnd_ = nullptr;
     HINSTANCE instance_ = nullptr;
@@ -53,27 +69,4 @@ private:
     int penWidthIndex_ = 1;
     MosuanTool activeTool_ = MosuanTool::Pen;
     InvertSettings invertSettings_;
-
-    HWND openButton_ = nullptr;
-    HWND saveButton_ = nullptr;
-    HWND zoomOutButton_ = nullptr;
-    HWND zoomLabel_ = nullptr;
-    HWND zoomInButton_ = nullptr;
-    HWND fitWidthButton_ = nullptr;
-    HWND panButton_ = nullptr;
-    HWND penButton_ = nullptr;
-    HWND rulerButton_ = nullptr;
-    HWND lassoButton_ = nullptr;
-    HWND eraserButton_ = nullptr;
-    HWND lineButton_ = nullptr;
-    HWND colorBlackButton_ = nullptr;
-    HWND colorRedButton_ = nullptr;
-    HWND colorBlueButton_ = nullptr;
-    HWND thinButton_ = nullptr;
-    HWND mediumButton_ = nullptr;
-    HWND thickButton_ = nullptr;
-    HWND dashButton_ = nullptr;
-    HWND oneStrokeButton_ = nullptr;
-    HWND pageLabel_ = nullptr;
-    HFONT toolbarFont_ = nullptr;
 };
