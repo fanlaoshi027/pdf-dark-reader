@@ -57,13 +57,21 @@ public:
 
     void ResetDocumentLayers();
     int AddInkLayer(const wchar_t* name);
+    int CreateNoteLayer(const wchar_t* name) { return AddInkLayer(name); }
     bool RemoveLayer(int id);
     bool SetActiveLayer(int id);
     int ActiveLayerId() const { return activeLayerId_; }
+    int MosuanLayerId() const { return activeLayerId_; }
     const std::vector<LayerItem>& Layers() const { return layers_; }
     LayerItem* FindLayer(int id);
     void SetLayerVisible(int id, bool visible);
     void SetLayerLocked(int id, bool locked);
+
+    void SetBackgroundVisible(bool visible) { backgroundVisible_ = visible; Invalidate(); }
+    bool BackgroundVisible() const { return backgroundVisible_; }
+    void SetPdfVisible(bool visible) { pdfVisible_ = visible; Invalidate(); }
+    bool PdfVisible() const { return pdfVisible_; }
+    void SetActiveLayerId(int id) { SetActiveLayer(id); }
 
     void ClearInk();
     void PaintOverlay(HDC hdc);
@@ -88,6 +96,8 @@ private:
     bool mosuanVisible_ = true;
     bool mosuanActive_ = true;
     bool penEnabled_ = true;
+    bool backgroundVisible_ = true;
+    bool pdfVisible_ = true;
     UINT32 activePointerId_ = 0;
     bool penDown_ = false;
     std::vector<LayerItem> layers_;
