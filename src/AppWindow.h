@@ -53,7 +53,7 @@ public:
     void SetOneStrokeMode(bool value) noexcept { mosuanAdapter_.SetOneStroke(value); }
     void SetPenColorIndex(int value) noexcept { mosuanAdapter_.SetColorIndex(value); }
     void SetPenWidthIndex(int value) noexcept { mosuanAdapter_.SetWidthIndex(value); }
-    void SetActiveTool(MosuanTool value) noexcept { activeTool_ = value; mosuanAdapter_.SetTool(value); ink_.SetTool(value); }
+    void SetActiveTool(MosuanTool value) noexcept { mosuanAdapter_.SetTool(value); ink_.SetTool(value); }
     void SetLayerPanelOpen(bool value) noexcept { layerPanelOpen_ = value; Refresh(); }
     void SetPixels(std::vector<std::uint8_t> value) { pixels_ = std::move(value); }
     void ApplyInkState() noexcept {
@@ -89,9 +89,6 @@ private:
     int pageIndex_ = 0, renderWidth_ = 0, renderHeight_ = 0, scrollY_ = 0;
     double zoom_ = 1.0;
     bool fitWidth_ = false, invert_ = false;
-    bool dashMode_ = false, oneStrokeMode_ = true;
-    int penColorIndex_ = 0, penWidthIndex_ = 1;
-    MosuanTool activeTool_ = MosuanTool::Pen;
     bool layerPanelOpen_ = false;
     InvertSettings invertSettings_;
 };
