@@ -6,82 +6,47 @@ void InkDocument::Clear() {
     currentPage_ = 0;
 }
 
-InkDocument::PageInk& InkDocument::Page(int pageIndex) {
-    auto it = std::find_if(pages_.begin(), pages_.end(), [pageIndex](const PageData& p) {
-        return p.pageIndex == pageIndex;
-    });
+InkPageData& InkDocument::Page(int pageIndex) {
+    auto it = std::find_if(pages_.begin(), pages_.end(), [pageIndex](const InkPageData& p) { return p.pageIndex == pageIndex; });
     if (it == pages_.end()) {
-        PageData page;
+        InkPageData page;
         page.pageIndex = pageIndex;
         pages_.push_back(std::move(page));
-        it = std::prev(pages_.end());
+        return pages_.back();
     }
-    static PageInk result;
-    result.pageIndex = pageIndex;
-    result.strokes.clear();
-    for (const auto& layer : it->layers) {
-        result.strokes.insert(result.strokes.end(), layer.strokes.begin(), layer.strokes.end());
-    }
-    return result;
+    return *it;
 }
 
-const InkDocument::PageInk* InkDocument::FindPage(int pageIndex) const {
-    static PageInk result;
-    auto it = std::find_if(pages_.begin(), pages_.end(), [pageIndex](const PageData& p) {
-        return p.pageIndex == pageIndex;
-    });
-    if (it == pages_.end()) return nullptr;
-    result.pageIndex = pageIndex;
-    result.strokes.clear();
-    for (const auto& layer : it->layers) {
-        result.strokes.insert(result.strokes.end(), layer.strokes.begin(), layer.strokes.end());
-    }
-    return &result;
+const InkPageData* InkDocument::FindPage(int pageIndex) const {
+    auto it = std::find_if(pages_.begin(), pages_.end(), [pageIndex](const InkPageData& p) { return p.pageIndex == pageIndex; });
+    return it == pages_.end() ? nullptr : &*it;
 }
 
-void InkDocument::SetCurrentPage(int pageIndex) { currentPage_ = pageIndex; }
+void InkDocument::SetCurrentPage(int pageIndex) {
+    currentPage_ = pageIndex;
+    Page(pageIndex);
+}
 
 void InkDocument::AddStroke(int layerId, InkStroke stroke) {
-    PageData* page = nullptr;
-    auto it = std::find_if(pages_.begin(), pages_.end(), [this](const PageData& p) {
-        return p.pageIndex == currentPage_;
-    });
-    if (it == pages_.end()) {
-        PageData data;
-        data.pageIndex = currentPage_;
-        pages_.push_back(std::move(data));
-        page = &pages_.back();
-    } else page = &*it;
-
-    auto layer = std::find_if(page->layers.begin(), page->layers.end(), [layerId](const LayerInk& l) {
-        return l.layerId == layerId;
-    });
-    if (layer == page->layers.end()) {
-        page->layers.push_back(LayerInk{layerId, {}});
-        layer = std::prev(page->layers.end());
+    auto& page = Page(currentPage_);
+    auto it = std::find_if(page.layers.begin(), page.layers.end(), [layerId](const InkPageData::LayerInk& l) { return l.layerId == layerId; });
+    if (it == page.layers.end()) {
+        page.layers.push_back({layerId, {}});
+        it = std::prev(page.layers.end());
     }
-    layer->strokes.push_back(std::move(stroke));
+    it->strokes.push_back(std::move(stroke));
 }
 
 const std::vector<InkStroke>& InkDocument::LayerStrokes(int pageIndex, int layerId) const {
     static const std::vector<InkStroke> empty;
-    auto page = std::find_if(pages_.begin(), pages_.end(), [pageIndex](const PageData& p) {
-        return p.pageIndex == pageIndex;
-    });
-    if (page == pages_.end()) return empty;
-    auto layer = std::find_if(page->layers.begin(), page->layers.end(), [layerId](const LayerInk& l) {
-        return l.layerId == layerId;
-    });
-    return layer == page->layers.end() ? empty : layer->strokes;
+    const auto* page = FindPage(pageIndex);
+    if (!page) return empty;
+    auto it = std::find_if(page->layers.begin(), page->layers.end(), [layerId](const InkPageData::LayerInk& l) { return l.layerId == layerId; });
+    return it == page->layers.end() ? empty : it->strokes;
 }
 
 void InkDocument::ClearLayer(int pageIndex, int layerId) {
-    auto page = std::find_if(pages_.begin(), pages_.end(), [pageIndex](const PageData& p) {
-        return p.pageIndex == pageIndex;
-    });
-    if (page == pages_.end()) return;
-    auto layer = std::find_if(page->layers.begin(), page->layers.end(), [layerId](const LayerInk& l) {
-        return l.layerId == layerId;
-    });
-    if (layer != page->layers.end()) layer->strokes.clear();
+    auto& page = Page(pageIndex);
+    auto it = std::find_if(page.layers.begin(), page.layers.end(), [layerId](const InkPageData::LayerInk& l) { return l.layerId == layerId; });
+    if (it != page.layers.end()) it->strokes.clear();
 }
