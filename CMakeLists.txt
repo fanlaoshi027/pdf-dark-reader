@@ -3,9 +3,15 @@ project(PDFDarkReader LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Platform policy:
+# - Windows remains the active build target while the UI is being finalized.
+# - Shared PDF/ink data types live outside the Windows UI/input layer so the
+#   future macOS target can reuse the same document, stroke and coordinate model.
 if(NOT WIN32)
-    message(FATAL_ERROR "PDF Dark Reader is currently Windows-only.")
+    message(FATAL_ERROR "The macOS target is planned but its native window/input layer is not enabled yet.")
 endif()
+
 set(PDFIUM_DIR "" CACHE PATH "PDFium package directory")
 if(NOT PDFIUM_DIR)
     message(FATAL_ERROR "PDFIUM_DIR must point to a PDFium package containing include/, lib/, and bin/.")
@@ -15,6 +21,7 @@ find_library(PDFIUM_LIBRARY NAMES pdfium pdfium.dll PATHS "${PDFIUM_DIR}/lib" NO
 
 add_executable(PDFDarkReader WIN32
     src/main.cpp
+    src/Core/InkTypes.h
     src/AppWindow.h src/AppWindow.cpp
     src/AppWindowPdf.h src/AppWindowPdf.cpp
     src/AppWindowInput.h src/AppWindowInput.cpp src/AppWindowMouse.cpp
@@ -43,7 +50,7 @@ add_executable(PDFDarkReader WIN32
     src/MosuanUiPanels.h src/MosuanUiPanels.cpp
 )
 
-target_include_directories(PDFDarkReader PRIVATE "${PDFIUM_INCLUDE_DIR}")
+target_include_directories(PDFDarkReader PRIVATE "${PDFIUM_INCLUDE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_compile_definitions(PDFDarkReader PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
 target_compile_options(PDFDarkReader PRIVATE /utf-8)
 target_link_libraries(PDFDarkReader PRIVATE "${PDFIUM_LIBRARY}" user32 gdi32 shell32 comdlg32)
