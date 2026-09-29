@@ -1,0 +1,39 @@
+#include "MosuanUiPrimitives.h"
+#include <cmath>
+namespace MosuanUI {
+COLORREF color(int r,int g,int b){return RGB(r,g,b);}
+void fillRound(HDC dc,const RECT& r,COLORREF fill,int radius){HBRUSH b=CreateSolidBrush(fill);HPEN p=CreatePen(PS_SOLID,1,fill);auto ob=SelectObject(dc,b);auto op=SelectObject(dc,p);RoundRect(dc,r.left,r.top,r.right,r.bottom,radius,radius);SelectObject(dc,op);SelectObject(dc,ob);DeleteObject(p);DeleteObject(b);}
+void strokeRound(HDC dc,const RECT& r,COLORREF stroke,int radius){HPEN p=CreatePen(PS_SOLID,1,stroke);auto op=SelectObject(dc,p);auto ob=SelectObject(dc,GetStockObject(HOLLOW_BRUSH));RoundRect(dc,r.left,r.top,r.right,r.bottom,radius,radius);SelectObject(dc,ob);SelectObject(dc,op);DeleteObject(p);}
+void line(HDC dc,int x1,int y1,int x2,int y2){MoveToEx(dc,x1,y1,nullptr);LineTo(dc,x2,y2);}
+void circle(HDC dc,int x,int y,int radius,COLORREF fill){HBRUSH b=CreateSolidBrush(fill);auto ob=SelectObject(dc,b);Ellipse(dc,x-radius,y-radius,x+radius,y+radius);SelectObject(dc,ob);DeleteObject(b);}
+void text(HDC dc,const wchar_t* value,const RECT& r,int size,COLORREF fg,UINT flags){HFONT f=CreateFontW(-size,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI");auto of=SelectObject(dc,f);SetBkMode(dc,TRANSPARENT);SetTextColor(dc,fg);DrawTextW(dc,value,-1,&r,flags);SelectObject(dc,of);DeleteObject(f);}
+void icon(HDC dc,int kind,const RECT& r,bool active){const int cx=(r.left+r.right)/2,cy=(r.top+r.bottom)/2;const COLORREF white=color(232,237,244),fg=active?color(245,248,252):white;HPEN p=CreatePen(PS_SOLID,2,fg);auto op=SelectObject(dc,p);auto ob=SelectObject(dc,GetStockObject(HOLLOW_BRUSH));
+switch(kind){
+case 0:Rectangle(dc,cx-9,cy-8,cx+9,cy+8);line(dc,cx-5,cy+4,cx+5,cy+4);break;
+case 1:Rectangle(dc,cx-9,cy-8,cx+9,cy+8);Rectangle(dc,cx-6,cy-6,cx+6,cy-2);line(dc,cx-5,cy+8,cx-5,cy+3);break;
+case 2:line(dc,cx+7,cy,cx-7,cy);line(dc,cx-7,cy,cx-2,cy-5);line(dc,cx-7,cy,cx-2,cy+5);break;
+case 3:line(dc,cx-7,cy,cx+7,cy);line(dc,cx+7,cy,cx+2,cy-5);line(dc,cx+7,cy,cx+2,cy+5);break;
+case 4:line(dc,cx-8,cy,cx+8,cy);line(dc,cx-8,cy-5,cx-8,cy+5);line(dc,cx+8,cy-5,cx+8,cy+5);break;
+case 5:line(dc,cx,cy+8,cx,cy-7);line(dc,cx,cy-7,cx-3,cy-4);line(dc,cx-3,cy-4,cx-3,cy+1);line(dc,cx-3,cy+1,cx-7,cy-2);line(dc,cx-7,cy-2,cx-9,cy);line(dc,cx-9,cy,cx-5,cy+7);line(dc,cx-5,cy+7,cx+5,cy+9);line(dc,cx+5,cy+9,cx+8,cy+3);break;
+case 6:line(dc,cx-8,cy+8,cx+6,cy-6);line(dc,cx+6,cy-6,cx+9,cy-3);line(dc,cx+9,cy-3,cx-5,cy+10);line(dc,cx-8,cy+8,cx-2,cy+9);break;
+case 7:Rectangle(dc,cx-9,cy-9,cx+9,cy+9);line(dc,cx-5,cy-4,cx+5,cy-4);line(dc,cx-5,cy,cx+3,cy);line(dc,cx-5,cy+4,cx+5,cy+4);break;
+case 8:Ellipse(dc,cx-8,cy-7,cx+7,cy+7);line(dc,cx+5,cy+5,cx+10,cy+10);break;
+case 9:{POINT q[4]={{cx-9,cy+4},{cx-2,cy-8},{cx+8,cy-3},{cx+1,cy+9}};Polygon(dc,q,4);}break;
+case 10:line(dc,cx-8,cy+8,cx+8,cy-8);break;
+case 14:line(dc,cx-8,cy,cx+8,cy);break;
+case 15:{HPEN q=CreatePen(PS_SOLID,3,fg);auto oq=SelectObject(dc,q);line(dc,cx-8,cy,cx+8,cy);SelectObject(dc,oq);DeleteObject(q);break;}
+case 16:{HPEN q=CreatePen(PS_SOLID,6,fg);auto oq=SelectObject(dc,q);line(dc,cx-8,cy,cx+8,cy);SelectObject(dc,oq);DeleteObject(q);break;}
+case 17:line(dc,cx-8,cy,cx-3,cy);line(dc,cx,cy,cx+5,cy);break;
+case 18:line(dc,cx-6,cy+7,cx+7,cy-7);Arc(dc,cx-8,cy-8,cx+8,cy+8,0,0,0,0);break;
+case 19:{POINT q[10]{};for(int i=0;i<10;i++){double a=-3.14159265/2+i*3.14159265/5;int rr=i%2?4:10;q[i]={cx+(int)std::lround(std::cos(a)*rr),cy+(int)std::lround(std::sin(a)*rr)};}Polygon(dc,q,10);}break;
+case 20:Rectangle(dc,cx-9,cy-7,cx+9,cy-2);Rectangle(dc,cx-9,cy,cx+9,cy+5);Rectangle(dc,cx-9,cy+7,cx+9,cy+12);break;
+case 21:Ellipse(dc,cx-7,cy-7,cx+7,cy+7);circle(dc,cx,cy,2,active?white:color(28,33,41));break;
+case 22:Arc(dc,cx-10,cy-6,cx+10,cy+6,0,0,0,0);Ellipse(dc,cx-3,cy-3,cx+3,cy+3);break;
+case 23:Rectangle(dc,cx-7,cy-1,cx+7,cy+8);Arc(dc,cx-5,cy-9,cx+5,cy+3,0,0,0,0);break;
+case 24:line(dc,cx-7,cy,cx+7,cy);line(dc,cx,cy-7,cx,cy+7);break;
+case 25:line(dc,cx,cy+7,cx,cy-7);line(dc,cx,cy-7,cx-5,cy-2);line(dc,cx,cy-7,cx+5,cy-2);break;
+case 26:line(dc,cx,cy-7,cx,cy+7);line(dc,cx,cy+7,cx-5,cy+2);line(dc,cx,cy+7,cx+5,cy+2);break;
+case 27:Rectangle(dc,cx-6,cy-5,cx+6,cy+8);line(dc,cx-8,cy-8,cx+8,cy-8);break;
+}
+SelectObject(dc,ob);SelectObject(dc,op);DeleteObject(p);}
+}
