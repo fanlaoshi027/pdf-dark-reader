@@ -5,6 +5,8 @@
 #include "ToolState.h"
 
 // Shared application state used by both desktop front ends.
+// Keep this layer free of Win32/Cocoa types so the same state can be used by
+// the future Windows and macOS front ends.
 class MosuanState {
 public:
     ToolState& Tools() { return tools_; }
