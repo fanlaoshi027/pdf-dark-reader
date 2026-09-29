@@ -1,5 +1,4 @@
 #pragma once
-
 #include <windows.h>
 #include <vector>
 #include <cstdint>
@@ -15,7 +14,6 @@ class AppWindow {
 public:
     bool Create(HINSTANCE instance);
     int Run();
-
     HWND hwnd() const noexcept { return hwnd_; }
     HINSTANCE instance() const noexcept { return instance_; }
     PdfDocument& pdf() noexcept { return pdf_; }
@@ -37,8 +35,9 @@ public:
     int penWidthIndex() const noexcept { return inkState_.WidthIndex(); }
     MosuanTool activeTool() const noexcept { return inkState_.Tool(); }
     InvertSettings& invertSettings() noexcept { return invertSettings_; }
+    bool layerPanelOpen() const noexcept { return layerPanelOpen_; }
 
-    void SetPageIndex(int value) noexcept { pageIndex_ = value; ink_.SetDocument(&inkDocument_); inkDocument_.SetCurrentPage(value); ink_.Cancel(); }
+    void SetPageIndex(int value) noexcept { pageIndex_ = value; inkDocument_.SetCurrentPage(value); ink_.Cancel(); }
     void SetRenderSize(int width, int height) noexcept { renderWidth_ = width; renderHeight_ = height; }
     void SetScrollY(int value) noexcept { scrollY_ = value; }
     void SetZoom(double value) noexcept { zoom_ = value; }
@@ -49,12 +48,11 @@ public:
     void SetPenColorIndex(int value) noexcept { inkState_.SetColorIndex(value); }
     void SetPenWidthIndex(int value) noexcept { inkState_.SetWidthIndex(value); }
     void SetActiveTool(MosuanTool value) noexcept { activeTool_ = value; inkState_.SetTool(value); ink_.SetTool(value); }
+    void SetLayerPanelOpen(bool value) noexcept { layerPanelOpen_ = value; Refresh(); }
     void SetPixels(std::vector<std::uint8_t> value) { pixels_ = std::move(value); }
-
     void ApplyInkState() noexcept { ink_.SetTool(inkState_.Tool()); ink_.SetStyle(inkState_.Style()); ink_.SetLayer(layers_.ActiveLayerId()); }
     void SaveInkSlot(std::size_t slot) noexcept { inkState_.SaveSlot(slot); }
     void LoadInkSlot(std::size_t slot) noexcept { inkState_.LoadSlot(slot); ApplyInkState(); }
-
     void Refresh() noexcept { InvalidateRect(hwnd_, nullptr, FALSE); }
     void UpdateScrollBar();
     void UpdateToolbarText();
@@ -63,7 +61,6 @@ public:
 private:
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
     LRESULT HandleMessage(UINT message, WPARAM wParam, LPARAM lParam);
-
     HWND hwnd_ = nullptr;
     HINSTANCE instance_ = nullptr;
     PdfDocument pdf_;
@@ -72,17 +69,12 @@ private:
     InkEngine ink_;
     InkToolState inkState_;
     std::vector<std::uint8_t> pixels_;
-    int pageIndex_ = 0;
-    int renderWidth_ = 0;
-    int renderHeight_ = 0;
-    int scrollY_ = 0;
+    int pageIndex_ = 0, renderWidth_ = 0, renderHeight_ = 0, scrollY_ = 0;
     double zoom_ = 1.0;
-    bool fitWidth_ = false;
-    bool invert_ = false;
-    bool dashMode_ = false;
-    bool oneStrokeMode_ = true;
-    int penColorIndex_ = 0;
-    int penWidthIndex_ = 1;
+    bool fitWidth_ = false, invert_ = false;
+    bool dashMode_ = false, oneStrokeMode_ = true;
+    int penColorIndex_ = 0, penWidthIndex_ = 1;
     MosuanTool activeTool_ = MosuanTool::Pen;
+    bool layerPanelOpen_ = false;
     InvertSettings invertSettings_;
 };
