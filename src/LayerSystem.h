@@ -5,7 +5,6 @@
 #include <vector>
 #include "Core/InkTypes.h"
 
-// Windows adapter. Platform-neutral ink/tool data lives in Core/InkTypes.h.
 struct LayerItem { int id=0; LayerKind kind=LayerKind::Ink; wchar_t name[64]=L"笔记"; bool visible=true; bool locked=false; };
 
 class LayerSystem {
@@ -14,11 +13,12 @@ public:
  void SetMosuanVisible(bool visible); bool MosuanVisible() const{return mosuanVisible_;} void SetMosuanActive(bool active){mosuanActive_=active;UpdateHitTest();} bool MosuanActive() const{return mosuanActive_;}
  void SetTool(MosuanTool tool); MosuanTool Tool() const{return tool_;} void SetPenEnabled(bool enabled); bool PenEnabled() const{return penEnabled_;}
  void SetPenColor(COLORREF color){penColor_=color;Invalidate();} COLORREF PenColor() const{return penColor_;} void SetPenWidth(float width){penWidth_=(std::max)(0.5f,width);Invalidate();} float PenWidth() const{return penWidth_;}
- void SetDashMode(bool dashed){dashMode_=dashed;Invalidate();} bool DashMode() const{return dashMode_;} void SetOneStrokeMode(bool enabled){oneStrokeMode_=enabled;} bool OneStrokeMode() const{return oneStrokeMode_;}
+ void SetDashMode(bool dashed){dashMode_=dashed;Invalidate();} bool DashMode() const{return dashMode_;} void SetOneStrokeMode(bool enabled){oneStrokeMode_=enabled;}
  POINT PdfToView(double pdfX,double pdfY) const; POINT ViewToPdf(int viewX,int viewY) const;
  void ResetDocumentLayers(); int AddInkLayer(const wchar_t* name); int CreateNoteLayer(const wchar_t* name){return AddInkLayer(name);} bool RemoveLayer(int id); bool SetActiveLayer(int id); int ActiveLayerId() const{return activeLayerId_;} int MosuanLayerId() const{return activeLayerId_;}
  const std::vector<LayerItem>& Layers() const{return layers_;} LayerItem* FindLayer(int id); void SetLayerVisible(int id,bool visible); void SetLayerLocked(int id,bool locked);
  void SetBackgroundVisible(bool visible){backgroundVisible_=visible;Invalidate();} bool BackgroundVisible() const{return backgroundVisible_;} void SetPdfVisible(bool visible){pdfVisible_=visible;Invalidate();} bool PdfVisible() const{return pdfVisible_;}
+ bool IsLayerVisible(int id) const; bool IsLayerLocked(int id) const;
  void SetActiveLayerId(int id){SetActiveLayer(id);} void ClearInk(); void PaintOverlay(HDC hdc);
 private:
  struct InkLayerData { int layerId=0; std::vector<InkStroke> strokes; };
