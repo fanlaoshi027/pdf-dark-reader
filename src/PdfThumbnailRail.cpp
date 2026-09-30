@@ -1,6 +1,7 @@
 #include "PdfThumbnailRail.h"
 #include "AppWindow.h"
 #include <algorithm>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -12,11 +13,44 @@ constexpr int kLeft = 15;
 constexpr int kTopPadding = 10;
 int g_scrollY = 0;
 
+struct Thumbnail {
+    int width = 0;
+    int height = 0;
+    std::vector<std::uint8_t> pixels;
+};
+std::unordered_map<int, Thumbnail> g_cache;
+int g_cachedPageCount = -1;
+
 void Fill(HDC hdc, const RECT& r, COLORREF color) {
     HBRUSH b = CreateSolidBrush(color);
     FillRect(hdc, &r, b);
     DeleteObject(b);
 }
+
+Thumbnail* GetThumbnail(AppWindow& app, int page) {
+    if (g_cachedPageCount != app.pdf().PageCount()) {
+        g_cache.clear();
+        g_cachedPageCount = app.pdf().PageCount();
+    }
+    auto it = g_cache.find(page);
+    if (it != g_cache.end()) return &it->second;
+
+    float pw = 1.0f, ph = 1.0f;
+    if (!app.pdf().PageSize(page, pw, ph)) return nullptr;
+    const double scale = std::min((kThumbW - 8.0) / pw, (kThumbH - 8.0) / ph);
+    Thumbnail t;
+    t.width = (std::max)(1, static_cast<int>(pw * scale));
+    t.height = (std::max)(1, static_cast<int>(ph * scale));
+    if (!app.pdf().RenderPage(page, t.width, t.height, t.pixels)) return nullptr;
+    auto [pos, inserted] = g_cache.emplace(page, std::move(t));
+    return inserted ? &pos->second : &pos->second;
+}
+}
+
+void PdfThumbnailRail::ResetCache() {
+    g_cache.clear();
+    g_cachedPageCount = -1;
+    g_scrollY = 0;
 }
 
 void PdfThumbnailRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
@@ -36,7 +70,11 @@ void PdfThumbnailRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
     const int maxScroll = (std::max)(0, contentHeight - viewport);
     g_scrollY = std::clamp(g_scrollY, 0, maxScroll);
 
-    for (int page = 0; page < count; ++page) {
+    const int first = (std::max)(0, (g_scrollY - kTopPadding) / (kThumbH + kGap));
+    const int last = (std::min)(count - 1,
+        (g_scrollY + viewport) / (kThumbH + kGap) + 1);
+
+    for (int page = first; page <= last; ++page) {
         const int y = kTop + kHeaderHeight + kTopPadding + page * (kThumbH + kGap) - g_scrollY;
         if (y > client.bottom) break;
         if (y + kThumbH < kTop + kHeaderHeight) continue;
@@ -54,25 +92,21 @@ void PdfThumbnailRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
         SelectObject(hdc, oldPen);
         DeleteObject(border);
 
-        float pw = 1.0f, ph = 1.0f;
-        if (!app.pdf().PageSize(page, pw, ph)) continue;
-        const double scale = std::min((kThumbW - 8.0) / pw, (kThumbH - 8.0) / ph);
-        const int rw = (std::max)(1, static_cast<int>(pw * scale));
-        const int rh = (std::max)(1, static_cast<int>(ph * scale));
-        std::vector<std::uint8_t> pixels;
-        if (!app.pdf().RenderPage(page, rw, rh, pixels)) continue;
-
-        BITMAPINFO bmi{};
-        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        bmi.bmiHeader.biWidth = rw;
-        bmi.bmiHeader.biHeight = -rh;
-        bmi.bmiHeader.biPlanes = 1;
-        bmi.bmiHeader.biBitCount = 32;
-        bmi.bmiHeader.biCompression = BI_RGB;
-        const int dx = card.left + (kThumbW - rw) / 2;
-        const int dy = card.top + 4;
-        StretchDIBits(hdc, dx, dy, rw, rh, 0, 0, rw, rh,
-                      pixels.data(), &bmi, DIB_RGB_COLORS, SRCCOPY);
+        Thumbnail* thumb = GetThumbnail(app, page);
+        if (thumb && !thumb->pixels.empty()) {
+            BITMAPINFO bmi{};
+            bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+            bmi.bmiHeader.biWidth = thumb->width;
+            bmi.bmiHeader.biHeight = -thumb->height;
+            bmi.bmiHeader.biPlanes = 1;
+            bmi.bmiHeader.biBitCount = 32;
+            bmi.bmiHeader.biCompression = BI_RGB;
+            const int dx = card.left + (kThumbW - thumb->width) / 2;
+            const int dy = card.top + 4;
+            StretchDIBits(hdc, dx, dy, thumb->width, thumb->height, 0, 0,
+                          thumb->width, thumb->height, thumb->pixels.data(),
+                          &bmi, DIB_RGB_COLORS, SRCCOPY);
+        }
 
         wchar_t number[16]{};
         wsprintfW(number, L"%d", page + 1);
