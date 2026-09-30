@@ -56,7 +56,8 @@ void PdfThumbnailRail::ResetCache() {
 void PdfThumbnailRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
     if (!app.pdf().IsOpen()) return;
 
-    RECT rail{0, kTop, kWidth, static_cast<int>(client.bottom)};
+    const int clientBottom = static_cast<int>(client.bottom);
+    RECT rail{0, kTop, kWidth, clientBottom};
     Fill(hdc, rail, RGB(24, 26, 31));
 
     SetBkMode(hdc, TRANSPARENT);
@@ -65,10 +66,11 @@ void PdfThumbnailRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
     DrawTextW(hdc, L"PDF", -1, &title, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
     const int count = app.pdf().PageCount();
-    const int clientBottom = static_cast<int>(client.bottom);
-    const int viewport = (std::max)(1, clientBottom - (kTop + kHeaderHeight));
+    int viewport = clientBottom - (kTop + kHeaderHeight);
+    if (viewport < 1) viewport = 1;
     const int contentHeight = kTopPadding + count * (kThumbH + kGap);
-    const int maxScroll = (std::max)(0, contentHeight - viewport);
+    int maxScroll = contentHeight - viewport;
+    if (maxScroll < 0) maxScroll = 0;
     g_scrollY = std::clamp(g_scrollY, 0, maxScroll);
 
     const int first = (std::max)(0, (g_scrollY - kTopPadding) / (kThumbH + kGap));
@@ -126,9 +128,11 @@ void PdfThumbnailRail::Scroll(AppWindow& app, int delta) {
     RECT client{};
     GetClientRect(app.hwnd(), &client);
     const int clientBottom = static_cast<int>(client.bottom);
-    const int viewport = (std::max)(1, clientBottom - (kTop + kHeaderHeight));
+    int viewport = clientBottom - (kTop + kHeaderHeight);
+    if (viewport < 1) viewport = 1;
     const int contentHeight = kTopPadding + app.pdf().PageCount() * (kThumbH + kGap);
-    const int maxScroll = (std::max)(0, contentHeight - viewport);
+    int maxScroll = contentHeight - viewport;
+    if (maxScroll < 0) maxScroll = 0;
     g_scrollY = std::clamp(g_scrollY + delta, 0, maxScroll);
     app.Refresh();
 }
