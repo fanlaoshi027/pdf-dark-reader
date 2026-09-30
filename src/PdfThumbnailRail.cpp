@@ -10,6 +10,7 @@ constexpr int kThumbH = 108;
 constexpr int kGap = 10;
 constexpr int kLeft = 15;
 constexpr int kTopPadding = 10;
+int g_scrollY = 0;
 
 void Fill(HDC hdc, const RECT& r, COLORREF color) {
     HBRUSH b = CreateSolidBrush(color);
@@ -21,23 +22,24 @@ void Fill(HDC hdc, const RECT& r, COLORREF color) {
 void PdfThumbnailRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
     if (!app.pdf().IsOpen()) return;
 
-    const int width = kWidth;
-    RECT rail{0, kTop, width, client.bottom};
+    RECT rail{0, kTop, kWidth, client.bottom};
     Fill(hdc, rail, RGB(24, 26, 31));
 
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, RGB(190, 194, 202));
-    RECT title{0, kTop + 4, width, kTop + kHeaderHeight};
+    RECT title{0, kTop + 4, kWidth, kTop + kHeaderHeight};
     DrawTextW(hdc, L"PDF", -1, &title, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
     const int count = app.pdf().PageCount();
-    const int first = 0;
-    const int last = count;
+    const int viewport = (std::max)(1, client.bottom - (kTop + kHeaderHeight));
+    const int contentHeight = kTopPadding + count * (kThumbH + kGap);
+    const int maxScroll = (std::max)(0, contentHeight - viewport);
+    g_scrollY = std::clamp(g_scrollY, 0, maxScroll);
 
-    for (int page = first; page < last; ++page) {
-        const int y = kTop + kHeaderHeight + kTopPadding + page * (kThumbH + kGap);
+    for (int page = 0; page < count; ++page) {
+        const int y = kTop + kHeaderHeight + kTopPadding + page * (kThumbH + kGap) - g_scrollY;
         if (y > client.bottom) break;
-        if (y + kThumbH < kTop) continue;
+        if (y + kThumbH < kTop + kHeaderHeight) continue;
 
         RECT card{kLeft, y, kLeft + kThumbW, y + kThumbH};
         const bool active = page == app.pageIndex();
@@ -52,7 +54,6 @@ void PdfThumbnailRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
         SelectObject(hdc, oldPen);
         DeleteObject(border);
 
-        // Render a small real page image using the same PDF renderer as the main view.
         float pw = 1.0f, ph = 1.0f;
         if (!app.pdf().PageSize(page, pw, ph)) continue;
         const double scale = std::min((kThumbW - 8.0) / pw, (kThumbH - 8.0) / ph);
@@ -81,9 +82,24 @@ void PdfThumbnailRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
     }
 }
 
+bool PdfThumbnailRail::Contains(int x, int y, const RECT& client) {
+    return x >= 0 && x < kWidth && y >= kTop + kHeaderHeight && y < client.bottom;
+}
+
+void PdfThumbnailRail::Scroll(AppWindow& app, int delta) {
+    if (!app.pdf().IsOpen()) return;
+    RECT client{};
+    GetClientRect(app.hwnd(), &client);
+    const int viewport = (std::max)(1, client.bottom - (kTop + kHeaderHeight));
+    const int contentHeight = kTopPadding + app.pdf().PageCount() * (kThumbH + kGap);
+    const int maxScroll = (std::max)(0, contentHeight - viewport);
+    g_scrollY = std::clamp(g_scrollY + delta, 0, maxScroll);
+    app.Refresh();
+}
+
 bool PdfThumbnailRail::HitTest(AppWindow& app, int x, int y, int& page) {
-    if (!app.pdf().IsOpen() || x < 0 || x >= kWidth || y < kTop) return false;
-    const int row = y - (kTop + kHeaderHeight + kTopPadding);
+    if (!app.pdf().IsOpen() || x < 0 || x >= kWidth || y < kTop + kHeaderHeight) return false;
+    const int row = y - (kTop + kHeaderHeight + kTopPadding) + g_scrollY;
     if (row < 0) return false;
     const int step = kThumbH + kGap;
     const int index = row / step;
