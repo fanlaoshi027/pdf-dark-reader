@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <cstdint>
 #include <vector>
+#include "WindowsInkHost.h"
 
 struct PdfViewTransform {
     double scale = 1.0;
@@ -32,6 +33,7 @@ public:
     MosuanTool Tool() const { return tool_; }
     void SetPenEnabled(bool enabled);
     bool PenEnabled() const { return penEnabled_; }
+    bool NativeInkActive() const { return nativeInk_.IsAvailable(); }
     void ClearInk();
     void PaintOverlay(HDC hdc);
 
@@ -61,4 +63,5 @@ private:
     std::vector<size_t> selectedStrokes_;
     MosuanTool tool_ = MosuanTool::Pen;
     COLORREF penColor_ = RGB(35, 75, 150);
+    WindowsInkHost nativeInk_;
 };
