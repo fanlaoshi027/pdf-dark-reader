@@ -2,6 +2,7 @@
 #include "AppWindow.h"
 #include "AppWindowPdf.h"
 #include "MosuanFavoritesRail.h"
+#include "PdfThumbnailRail.h"
 #include <windowsx.h>
 #include <algorithm>
 
@@ -13,7 +14,7 @@ bool InPage(const AppWindow& app, int x, int y) {
     if (y < kToolbarHeight) return false;
     RECT rc{};
     GetClientRect(app.hwnd(), &rc);
-    if (x < 0 || x >= rc.right - MosuanFavoritesRail::kWidth || y >= rc.bottom) return false;
+    if (x < PdfThumbnailRail::kWidth || x >= rc.right - MosuanFavoritesRail::kWidth || y >= rc.bottom) return false;
     return true;
 }
 
@@ -23,7 +24,6 @@ float PointerPressure(WPARAM wParam) {
     if (GetPointerType(pointerId, &type) && type == PT_PEN) {
         POINTER_PEN_INFO pen{};
         if (GetPointerPenInfo(pointerId, &pen)) {
-            // Windows Ink pressure is normalized to [0, 1024].
             return static_cast<float>(pen.pressure) / 1024.0f;
         }
     }
@@ -75,6 +75,16 @@ LRESULT AppWindowInput::HandleLButtonDown(AppWindow& app, int x, int y, WPARAM f
         MosuanFavoritesRail::Activate(app, slot, save);
         return 0;
     }
+
+    int page = -1;
+    if (PdfThumbnailRail::HitTest(app, x, y, page)) {
+        app.SetPageIndex(page);
+        app.SetScrollY(0);
+        AppWindowPdf::Render(app);
+        app.Refresh();
+        return 0;
+    }
+
     if (!InPage(app, x, y)) return 1;
 
     SetCapture(app.hwnd());
