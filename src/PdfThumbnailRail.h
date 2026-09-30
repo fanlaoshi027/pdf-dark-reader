@@ -1,6 +1,5 @@
 #pragma once
 #include <windows.h>
-#include <cstddef>
 
 class AppWindow;
 
@@ -10,4 +9,6 @@ public:
     static constexpr int kTop = 58;
     static void Paint(AppWindow& app, HDC hdc, const RECT& client);
     static bool HitTest(AppWindow& app, int x, int y, int& page);
+    static bool Contains(int x, int y, const RECT& client);
+    static void Scroll(AppWindow& app, int delta);
 };
