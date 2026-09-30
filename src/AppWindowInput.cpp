@@ -1,7 +1,28 @@
 #include "AppWindowInput.h"
 #include "AppWindow.h"
 #include "AppWindowPdf.h"
+#include "MosuanFavoritesRail.h"
 #include <windowsx.h>
+#include <algorithm>
+
+namespace {
+constexpr int kToolbarHeight = 70;
+
+bool InPage(const AppWindow& app, int x, int y) {
+    if (!app.pdf().IsOpen()) return false;
+    if (y < kToolbarHeight) return false;
+    RECT rc{};
+    GetClientRect(app.hwnd(), &rc);
+    if (x < 0 || x >= rc.right - MosuanFavoritesRail::kWidth || y >= rc.bottom) return false;
+    return true;
+}
+
+POINT ClampToPage(const AppWindow& app, POINT p) {
+    const int x = (std::max)(0, (std::min)(p.x, app.renderWidth()));
+    const int y = (std::max)(0, (std::min)(p.y, app.renderHeight() + kToolbarHeight));
+    return {x, y};
+}
+}
 
 LRESULT AppWindowInput::HandleKey(AppWindow& app, WPARAM key) {
     if (key == 'O' && (GetKeyState(VK_CONTROL) & 0x8000)) { AppWindowPdf::Open(app); return 0; }
@@ -37,5 +58,46 @@ LRESULT AppWindowInput::HandleVScroll(AppWindow& app, WPARAM wParam) {
     }
     default: break;
     }
+    return 0;
+}
+
+LRESULT AppWindowInput::HandleLButtonDown(AppWindow& app, int x, int y, WPARAM flags) {
+    RECT client{}; GetClientRect(app.hwnd(), &client);
+    std::size_t slot = 0; bool save = false;
+    if (MosuanFavoritesRail::HitTest(client, x, y, slot, save)) {
+        MosuanFavoritesRail::Activate(app, slot, save);
+        return 0;
+    }
+
+    if (!InPage(app, x, y)) return 1;
+
+    SetCapture(app.hwnd());
+    POINT p{x, y};
+    if (app.activeTool() == MosuanTool::Ruler) {
+        ReleaseCapture();
+        return 0;
+    }
+    app.Ink().Begin(p, 0.5f);
+    app.Refresh();
+    (void)flags;
+    return 0;
+}
+
+LRESULT AppWindowInput::HandleMouseMove(AppWindow& app, int x, int y, WPARAM flags) {
+    if (!app.Ink().IsDrawing()) return 1;
+    POINT p{x, y};
+    app.Ink().Move(p, 0.5f);
+    app.Refresh();
+    (void)flags;
+    return 0;
+}
+
+LRESULT AppWindowInput::HandleLButtonUp(AppWindow& app, int x, int y, WPARAM flags) {
+    if (!app.Ink().IsDrawing()) return 1;
+    POINT p{x, y};
+    app.Ink().End(p, 0.5f);
+    ReleaseCapture();
+    app.Refresh();
+    (void)flags;
     return 0;
 }
