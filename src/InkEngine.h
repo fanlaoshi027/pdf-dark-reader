@@ -1,6 +1,7 @@
 #pragma once
 #include <windows.h>
 #include <vector>
+#include <chrono>
 #include "InkDocument.h"
 #include "StrokeDynamics.h"
 #include "StrokeRenderer.h"
@@ -23,18 +24,25 @@ public:
     void Draw(HDC hdc) const;
 
     bool IsDrawing() const { return drawing_; }
+    bool HasPreviewStroke() const { return !currentStroke_.points.empty(); }
+    const InkStroke& PreviewStroke() const { return currentStroke_; }
     bool IsSelected(size_t index) const;
     const std::vector<size_t>& Selection() const { return selectedStrokes_; }
 
 private:
     InkPoint ToInkPoint(POINT viewPoint, float pressure) const;
+    uint64_t StrokeTimestamp() const;
+
     InkDocument* document_ = nullptr;
     PdfViewTransform transform_;
     StrokeStyle style_;
     MosuanTool tool_ = MosuanTool::Pen;
     int activeLayerId_ = 3;
+
     bool drawing_ = false;
     InkStroke currentStroke_;
+    uint64_t strokeSequence_ = 0;
+
     POINT lineStart_{};
     POINT lineEnd_{};
     std::vector<POINT> lasso_;
