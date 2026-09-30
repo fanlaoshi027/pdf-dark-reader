@@ -28,6 +28,9 @@ void AppWindowPaint::Paint(AppWindow& app, HDC hdc) {
     const int availableW = (std::max)(1, contentRight - contentLeft - 20);
     const int x = contentLeft + (std::max)(10, (availableW - app.renderWidth()) / 2);
     const int y = kToolbarHeight + 10 - app.scrollY();
+
+    // PDF layer is painted first. Ink remains an independent vector layer.
+    // This prevents zoom/scroll operations from forcing complete ink redraw.
     if (y < rc.bottom && y + app.renderHeight() > kToolbarHeight) {
         BITMAPINFO bmi{};
         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -36,12 +39,18 @@ void AppWindowPaint::Paint(AppWindow& app, HDC hdc) {
         bmi.bmiHeader.biPlanes = 1;
         bmi.bmiHeader.biBitCount = 32;
         bmi.bmiHeader.biCompression = BI_RGB;
+
         StretchDIBits(hdc, x, y, app.renderWidth(), app.renderHeight(), 0, 0,
                       app.renderWidth(), app.renderHeight(), app.pixels().data(),
                       &bmi, DIB_RGB_COLORS, SRCCOPY);
+
         app.SyncInkTransform(x, y);
+
+        // Draw vector ink after PDF rendering.
+        // Keeps handwriting sharp during zoom and avoids bitmap scaling blur.
         if (app.layers().MosuanVisible()) app.Ink().Draw(hdc);
     }
+
     MosuanFavoritesRail::Paint(app, hdc, rc);
 }
 
