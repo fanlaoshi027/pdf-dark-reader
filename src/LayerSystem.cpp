@@ -123,7 +123,22 @@ LRESULT CALLBACK LayerSystem::OverlayProc(HWND hwnd,UINT message,WPARAM wParam,L
     switch(message){
     case WM_NCHITTEST:return(self->mosuanActive_&&self->penEnabled_)?HTCLIENT:HTTRANSPARENT;
     case WM_POINTERDOWN:{const UINT32 id=GET_POINTERID_WPARAM(wParam);POINTER_INFO info{};POINTER_PEN_INFO pen{};if(!GetPointerInfo(id,&info)||info.pointerType!=PT_PEN||!GetPointerPenInfo(id,&pen))return 0;self->BeginPen(id,info.ptPixelLocation,pen.pressure/1024.0f);return 0;}
-    case WM_POINTERUPDATE:{const UINT32 id=GET_POINTERID_WPARAM(wParam);if(!self->penDown_)return 0;POINTER_INFO info{};POINTER_PEN_INFO pen{};if(!GetPointerInfo(id,&info)||!GetPointerPenInfo(id,&pen))return 0;self->UpdatePen(id,info.ptPixelLocation,pen.pressure/1024.0f);return 0;}
+    case WM_POINTERUPDATE:{const UINT32 id=GET_POINTERID_WPARAM(wParam);if(!self->penDown_)return 0;POINTER_INFO info{};POINTER_PEN_INFO pen{};if(!GetPointerInfo(id,&info)||!GetPointerPenInfo(id,&pen))return 0;
+        UINT32 count=0;
+        if(GetPointerPenInfoHistory(id,&count,nullptr) && count>1){
+            std::vector<POINTER_PEN_INFO> history(count);
+            if(GetPointerPenInfoHistory(id,&count,history.data())){
+                // Windows returns the newest sample first. Feed the coalesced
+                // samples back in chronological order so fast handwriting does
+                // not lose points when the UI thread receives a burst.
+                for(UINT32 i=count;i>0;--i){
+                    const auto& sample=history[i-1];
+                    self->UpdatePen(id,sample.pointerInfo.ptPixelLocation,sample.pressure/1024.0f);
+                }
+                return 0;
+            }
+        }
+        self->UpdatePen(id,info.ptPixelLocation,pen.pressure/1024.0f);return 0;}
     case WM_POINTERUP:self->EndPen(GET_POINTERID_WPARAM(wParam));return 0;
     case WM_CAPTURECHANGED:self->penDown_=false;self->activePointerId_=0;return 0;
     case WM_ERASEBKGND:return 1;
