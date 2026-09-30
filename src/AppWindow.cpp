@@ -54,7 +54,7 @@ LRESULT AppWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
     case WM_COMMAND: if (AppWindowCommands::Execute(*this, LOWORD(wParam)) == 0) return 0; break;
     case WM_KEYDOWN: if (AppWindowInput::HandleKey(*this, wParam) == 0) return 0; break;
-    case WM_MOUSEWHEEL: return AppWindowInput::HandleMouseWheel(*this, wParam);
+    case WM_MOUSEWHEEL: return AppWindowInput::HandleMouseWheel(*this, wParam, lParam);
     case WM_VSCROLL: return AppWindowInput::HandleVScroll(*this, wParam);
     case WM_LBUTTONDOWN: return AppWindowInput::HandleLButtonDown(*this, XParam(lParam), YParam(lParam), wParam);
     case WM_MOUSEMOVE: return AppWindowInput::HandleMouseMove(*this, XParam(lParam), YParam(lParam), wParam);
