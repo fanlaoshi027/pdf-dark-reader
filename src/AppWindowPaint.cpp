@@ -2,11 +2,15 @@
 #include "AppWindow.h"
 #include "MosuanFavoritesRail.h"
 #include "PdfThumbnailRail.h"
+#include "Core/InkRenderScheduler.h"
 #include <algorithm>
 
 namespace { constexpr int kToolbarHeight = 70; }
 
 void AppWindowPaint::Paint(AppWindow& app, HDC hdc) {
+    static InkRenderScheduler inkScheduler;
+    inkScheduler.BeginFrame();
+
     RECT rc{}; GetClientRect(app.hwnd(), &rc);
     const COLORREF background = app.invertEnabled()
         ? RGB(app.invertSettings().backgroundR, app.invertSettings().backgroundG, app.invertSettings().backgroundB)
@@ -29,8 +33,6 @@ void AppWindowPaint::Paint(AppWindow& app, HDC hdc) {
     const int x = contentLeft + (std::max)(10, (availableW - app.renderWidth()) / 2);
     const int y = kToolbarHeight + 10 - app.scrollY();
 
-    // PDF layer is painted first. Ink remains an independent vector layer.
-    // This prevents zoom/scroll operations from forcing complete ink redraw.
     if (y < rc.bottom && y + app.renderHeight() > kToolbarHeight) {
         BITMAPINFO bmi{};
         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -46,11 +48,13 @@ void AppWindowPaint::Paint(AppWindow& app, HDC hdc) {
 
         app.SyncInkTransform(x, y);
 
-        // Draw vector ink after PDF rendering.
-        // Keeps handwriting sharp during zoom and avoids bitmap scaling blur.
-        if (app.layers().MosuanVisible()) app.Ink().Draw(hdc);
+        if (app.layers().MosuanVisible()) {
+            inkScheduler.MarkInkLayer();
+            app.Ink().Draw(hdc);
+        }
     }
 
+    inkScheduler.EndFrame();
     MosuanFavoritesRail::Paint(app, hdc, rc);
 }
 
