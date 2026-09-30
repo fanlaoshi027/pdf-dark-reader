@@ -1,15 +1,10 @@
 #pragma once
 
 #include <windows.h>
+#include <d3d11.h>
+#include <dcomp.h>
+#include <inkpresenterdesktop.h>
 #include <wrl/client.h>
-
-struct ID3D11Device;
-struct ID3D11DeviceContext;
-struct IDCompositionDevice;
-struct IDCompositionTarget;
-struct IDCompositionVisual;
-struct IInkDesktopHost;
-struct IInkPresenterDesktop;
 
 // Native Windows Ink host for the Win32 PDF viewer.
 // The first integration stage hosts InkPresenter beside the existing
