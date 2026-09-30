@@ -4,6 +4,7 @@
 #include "AppWindowPaint.h"
 #include "AppWindowPdf.h"
 #include <algorithm>
+#include <windowsx.h>
 
 namespace {
 constexpr wchar_t kClassName[] = L"PDFDarkReaderWindow";
@@ -78,7 +79,7 @@ void AppWindow::SyncInkTransform(int originX, int originY) {
     t.pageHeight = renderHeight_;
     ink_.SetTransform(t);
     ink_.SetLayer(layers_.ActiveLayerId());
-    ink_.SetTool(activeTool_);
+    ink_.SetTool(activeTool());
 }
 
 void AppWindow::UpdateScrollBar() {
