@@ -17,10 +17,17 @@ bool InPage(const AppWindow& app, int x, int y) {
     return true;
 }
 
-POINT ClampToPage(const AppWindow& app, POINT p) {
-    const int x = (std::max)(0, (std::min)(p.x, app.renderWidth()));
-    const int y = (std::max)(0, (std::min)(p.y, app.renderHeight() + kToolbarHeight));
-    return {x, y};
+float PointerPressure(WPARAM wParam) {
+    const UINT32 pointerId = GET_POINTERID_WPARAM(wParam);
+    POINTER_TYPE type = PT_POINTER;
+    if (GetPointerType(pointerId, &type) && type == PT_PEN) {
+        POINTER_PEN_INFO pen{};
+        if (GetPointerPenInfo(pointerId, &pen)) {
+            // Windows Ink pressure is normalized to [0, 1024].
+            return static_cast<float>(pen.pressure) / 1024.0f;
+        }
+    }
+    return 0.5f;
 }
 }
 
@@ -68,7 +75,6 @@ LRESULT AppWindowInput::HandleLButtonDown(AppWindow& app, int x, int y, WPARAM f
         MosuanFavoritesRail::Activate(app, slot, save);
         return 0;
     }
-
     if (!InPage(app, x, y)) return 1;
 
     SetCapture(app.hwnd());
@@ -99,5 +105,31 @@ LRESULT AppWindowInput::HandleLButtonUp(AppWindow& app, int x, int y, WPARAM fla
     ReleaseCapture();
     app.Refresh();
     (void)flags;
+    return 0;
+}
+
+LRESULT AppWindowInput::HandlePointerDown(AppWindow& app, WPARAM wParam, LPARAM lParam) {
+    const POINT p{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+    if (!InPage(app, p.x, p.y)) return 1;
+    SetCapture(app.hwnd());
+    app.Ink().Begin(p, PointerPressure(wParam));
+    app.Refresh();
+    return 0;
+}
+
+LRESULT AppWindowInput::HandlePointerUpdate(AppWindow& app, WPARAM wParam, LPARAM lParam) {
+    if (!app.Ink().IsDrawing()) return 1;
+    const POINT p{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+    app.Ink().Move(p, PointerPressure(wParam));
+    app.Refresh();
+    return 0;
+}
+
+LRESULT AppWindowInput::HandlePointerUp(AppWindow& app, WPARAM wParam, LPARAM lParam) {
+    if (!app.Ink().IsDrawing()) return 1;
+    const POINT p{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+    app.Ink().End(p, PointerPressure(wParam));
+    ReleaseCapture();
+    app.Refresh();
     return 0;
 }
