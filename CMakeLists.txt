@@ -25,6 +25,8 @@ add_executable(PDFDarkReader WIN32
     src/PdfDocument.cpp
     src/LayerSystem.h
     src/LayerSystem.cpp
+    src/WindowsInkHost.h
+    src/WindowsInkHost.cpp
     src/MosuanUi.cpp
     src/FavoriteBar.cpp
     src/ToolbarSkin.cpp
@@ -33,7 +35,11 @@ add_executable(PDFDarkReader WIN32
 target_include_directories(PDFDarkReader PRIVATE "${PDFIUM_INCLUDE_DIR}")
 target_compile_definitions(PDFDarkReader PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
 target_compile_options(PDFDarkReader PRIVATE /utf-8)
-target_link_libraries(PDFDarkReader PRIVATE "${PDFIUM_LIBRARY}" user32 gdi32 shell32 comdlg32)
+target_link_libraries(PDFDarkReader PRIVATE
+    "${PDFIUM_LIBRARY}"
+    user32 gdi32 shell32 comdlg32
+    d3d11 dxgi dcomp
+)
 add_custom_command(TARGET PDFDarkReader POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${PDFIUM_DIR}/bin/pdfium.dll"
