@@ -1,4 +1,5 @@
 #include "LayerSystem.h"
+#include <objidl.h>
 #include <algorithm>
 #include <cmath>
 #include <windowsx.h>
