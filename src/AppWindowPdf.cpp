@@ -1,5 +1,6 @@
 #include "AppWindowPdf.h"
 #include "AppWindow.h"
+#include "PdfThumbnailRail.h"
 #include <algorithm>
 #include <cmath>
 #include <commdlg.h>
@@ -26,12 +27,12 @@ void InvertBgra(std::vector<std::uint8_t>& pixels, const InvertSettings& s) {
 
 void UpdateTransform(AppWindow& app) {
     RECT rc{}; GetClientRect(app.hwnd(), &rc);
-    RECT viewport{0, kToolbarHeight, rc.right, rc.bottom};
+    RECT viewport{PdfThumbnailRail::kWidth, kToolbarHeight, rc.right, rc.bottom};
     app.layers().Resize(viewport);
     float pageW = 1, pageH = 1;
     if (!app.pdf().PageSize(app.pageIndex(), pageW, pageH)) return;
-    const int availableW = (std::max)(1, static_cast<int>(rc.right) - 20);
-    const int x = (std::max)(10, (availableW - app.renderWidth()) / 2);
+    const int availableW = (std::max)(1, static_cast<int>(rc.right) - PdfThumbnailRail::kWidth - 20);
+    const int x = PdfThumbnailRail::kWidth + (std::max)(10, (availableW - app.renderWidth()) / 2);
     const int y = kToolbarHeight + 10 - app.scrollY();
     const double scale = pageW > 0.0 ? static_cast<double>(app.renderWidth()) / pageW : 1.0;
     PdfViewTransform t{};
@@ -60,6 +61,7 @@ void AppWindowPdf::Open(AppWindow& app) {
         return;
     }
 
+    PdfThumbnailRail::ResetCache();
     app.SetPageIndex(0);
     app.SetInvertState(false);
     app.SetZoom(1.0);
@@ -74,7 +76,7 @@ void AppWindowPdf::Open(AppWindow& app) {
 void AppWindowPdf::Render(AppWindow& app) {
     if (!app.pdf().IsOpen()) return;
     RECT rc{}; GetClientRect(app.hwnd(), &rc);
-    const int availableW = (std::max)(200, static_cast<int>(rc.right) - 40);
+    const int availableW = (std::max)(200, static_cast<int>(rc.right) - PdfThumbnailRail::kWidth - 40);
     const int availableH = (std::max)(200, static_cast<int>(rc.bottom) - kToolbarHeight - 20);
     float pageW = 1, pageH = 1;
     if (!app.pdf().PageSize(app.pageIndex(), pageW, pageH)) return;
