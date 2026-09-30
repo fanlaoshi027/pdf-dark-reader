@@ -7,9 +7,6 @@ void LayerRenderer::DrawBackground(HDC hdc, const RECT& viewport, COLORREF color
     DeleteObject(brush);
 }
 
-void LayerRenderer::DrawInk(HDC hdc, const LayerSystem& layers) {
-    // Rendering is intentionally isolated from input/model code.
-    // The existing LayerSystem overlay remains the source of truth until
-    // stroke storage is migrated fully into per-layer containers.
+void LayerRenderer::DrawInk(HDC hdc, LayerSystem& layers) {
     layers.PaintOverlay(hdc);
 }
