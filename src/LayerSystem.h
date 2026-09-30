@@ -10,16 +10,35 @@ struct LayerItem { int id=0; LayerKind kind=LayerKind::Ink; wchar_t name[64]=L"ç
 class LayerSystem {
 public:
  bool Create(HWND parent); void Resize(const RECT& viewport); void SetTransform(const PdfViewTransform& transform); const PdfViewTransform& Transform() const{return transform_;}
- void SetMosuanVisible(bool visible); bool MosuanVisible() const{return mosuanVisible_;} void SetMosuanActive(bool active){mosuanActive_=active;UpdateHitTest();} bool MosuanActive() const{return mosuanActive_;}
- void SetTool(MosuanTool tool); MosuanTool Tool() const{return tool_;} void SetPenEnabled(bool enabled); bool PenEnabled() const{return penEnabled_;}
- void SetPenColor(COLORREF color){penColor_=color;Invalidate();} COLORREF PenColor() const{return penColor_;} void SetPenWidth(float width){penWidth_=(std::max)(0.5f,width);Invalidate();} float PenWidth() const{return penWidth_;}
- void SetDashMode(bool dashed){dashMode_=dashed;Invalidate();} bool DashMode() const{return dashMode_;} void SetOneStrokeMode(bool enabled){oneStrokeMode_=enabled;}
+ void SetMosuanVisible(bool visible); bool MosuanVisible() const noexcept{return mosuanVisible_;} void SetMosuanActive(bool active){mosuanActive_=active;UpdateHitTest();} bool MosuanActive() const noexcept{return mosuanActive_;}
+ void SetTool(MosuanTool tool); MosuanTool Tool() const noexcept{return tool_;} void SetPenEnabled(bool enabled); bool PenEnabled() const noexcept{return penEnabled_;}
+ void SetPenColor(COLORREF color){penColor_=color;Invalidate();} COLORREF PenColor() const noexcept{return penColor_;} void SetPenWidth(float width){penWidth_=(std::max)(0.5f,width);Invalidate();} float PenWidth() const noexcept{return penWidth_;}
+ void SetDashMode(bool dashed){dashMode_=dashed;Invalidate();} bool DashMode() const noexcept{return dashMode_;} void SetOneStrokeMode(bool enabled){oneStrokeMode_=enabled;}
  POINT PdfToView(double pdfX,double pdfY) const; POINT ViewToPdf(int viewX,int viewY) const;
- void ResetDocumentLayers(); int AddInkLayer(const wchar_t* name); int CreateNoteLayer(const wchar_t* name){return AddInkLayer(name);} bool RemoveLayer(int id); bool SetActiveLayer(int id); int ActiveLayerId() const{return activeLayerId_;} int MosuanLayerId() const{return activeLayerId_;}
+ void ResetDocumentLayers(); int AddInkLayer(const wchar_t* name); int CreateNoteLayer(const wchar_t* name){return AddInkLayer(name);} bool RemoveLayer(int id); bool SetActiveLayer(int id); int ActiveLayerId() const noexcept{return activeLayerId_;} int MosuanLayerId() const noexcept{return activeLayerId_;}
  const std::vector<LayerItem>& Layers() const{return layers_;} LayerItem* FindLayer(int id); void SetLayerVisible(int id,bool visible); void SetLayerLocked(int id,bool locked);
  void RenameLayer(int id,const wchar_t* name); bool CanEditActiveLayer() const;
- bool MoveLayer(int id,int newIndex); bool MoveLayerUp(int id); bool MoveLayerDown(int id);
- void SetBackgroundVisible(bool visible){backgroundVisible_=visible;Invalidate();} bool BackgroundVisible() const{return backgroundVisible_;} void SetPdfVisible(bool visible){pdfVisible_=visible;Invalidate();} bool PdfVisible() const{return pdfVisible_;}
+ bool MoveLayer(int id,int newIndex){
+     auto it=std::find_if(layers_.begin(),layers_.end(),[&](const LayerItem& x){return x.id==id&&x.kind==LayerKind::Ink;});
+     if(it==layers_.end()||it->locked)return false;
+     int first=0; while(first<(int)layers_.size()&&layers_[first].kind!=LayerKind::Ink)++first;
+     int last=(int)layers_.size()-1; newIndex=(std::max)(first,(std::min)(last,newIndex));
+     LayerItem item=*it; int old=(int)std::distance(layers_.begin(),it); layers_.erase(it); if(newIndex>old)--newIndex;
+     layers_.insert(layers_.begin()+newIndex,item); Invalidate(); return true;
+ }
+ bool MoveLayerUp(int id){
+     auto it=std::find_if(layers_.begin(),layers_.end(),[&](const LayerItem& x){return x.id==id;});
+     if(it==layers_.end()||it->kind!=LayerKind::Ink||it->locked)return false;
+     for(auto p=it;p!=layers_.begin();){--p;if(p->kind==LayerKind::Ink){std::iter_swap(p,it);Invalidate();return true;}}
+     return false;
+ }
+ bool MoveLayerDown(int id){
+     auto it=std::find_if(layers_.begin(),layers_.end(),[&](const LayerItem& x){return x.id==id;});
+     if(it==layers_.end()||it->kind!=LayerKind::Ink||it->locked)return false;
+     for(auto p=std::next(it);p!=layers_.end();++p)if(p->kind==LayerKind::Ink){std::iter_swap(p,it);Invalidate();return true;}
+     return false;
+ }
+ void SetBackgroundVisible(bool visible){backgroundVisible_=visible;Invalidate();} bool BackgroundVisible() const noexcept{return backgroundVisible_;} void SetPdfVisible(bool visible){pdfVisible_=visible;Invalidate();} bool PdfVisible() const noexcept{return pdfVisible_;}
  bool IsLayerVisible(int id) const; bool IsLayerLocked(int id) const;
  void SetActiveLayerId(int id){SetActiveLayer(id);} void ClearInk(); void PaintOverlay(HDC hdc);
 private:
