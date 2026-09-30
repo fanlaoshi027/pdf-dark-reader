@@ -57,6 +57,9 @@ LRESULT AppWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
     case WM_LBUTTONDOWN: return AppWindowInput::HandleLButtonDown(*this, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
     case WM_MOUSEMOVE: return AppWindowInput::HandleMouseMove(*this, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
     case WM_LBUTTONUP: return AppWindowInput::HandleLButtonUp(*this, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
+    case WM_POINTERDOWN: return AppWindowInput::HandlePointerDown(*this, wParam, lParam);
+    case WM_POINTERUPDATE: return AppWindowInput::HandlePointerUpdate(*this, wParam, lParam);
+    case WM_POINTERUP: return AppWindowInput::HandlePointerUp(*this, wParam, lParam);
     case WM_SIZE: if (pdf_.IsOpen()) AppWindowPdf::Render(*this); return 0;
     case WM_PAINT: { PAINTSTRUCT ps{}; HDC hdc = BeginPaint(hwnd_, &ps); AppWindowPaint::Paint(*this, hdc); EndPaint(hwnd_, &ps); return 0; }
     case WM_MOSUAN_NOTE_VIS:
