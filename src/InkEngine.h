@@ -5,6 +5,7 @@
 #include "InkDocument.h"
 #include "StrokeDynamics.h"
 #include "StrokeRenderer.h"
+#include "Core/InkStrokeBuffer.h"
 
 class InkEngine {
 public:
@@ -24,8 +25,8 @@ public:
     void Draw(HDC hdc) const;
 
     bool IsDrawing() const { return drawing_; }
-    bool HasPreviewStroke() const { return !currentStroke_.points.empty(); }
-    const InkStroke& PreviewStroke() const { return currentStroke_; }
+    bool HasPreviewStroke() const { return inkBuffer_.IsDrawing() && !inkBuffer_.Current().points.empty(); }
+    const InkStroke& PreviewStroke() const { return inkBuffer_.Current(); }
     bool IsSelected(size_t index) const;
     const std::vector<size_t>& Selection() const { return selectedStrokes_; }
 
@@ -41,6 +42,7 @@ private:
 
     bool drawing_ = false;
     InkStroke currentStroke_;
+    InkStrokeBuffer inkBuffer_;
     uint64_t strokeSequence_ = 0;
 
     POINT lineStart_{};
