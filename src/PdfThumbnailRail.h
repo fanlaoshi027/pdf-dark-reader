@@ -1,5 +1,7 @@
 #pragma once
 #include <windows.h>
+#include <cstdint>
+#include <vector>
 
 class AppWindow;
 
@@ -11,4 +13,5 @@ public:
     static bool HitTest(AppWindow& app, int x, int y, int& page);
     static bool Contains(int x, int y, const RECT& client);
     static void Scroll(AppWindow& app, int delta);
+    static void ResetCache();
 };
