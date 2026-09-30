@@ -4,7 +4,6 @@
 #include "AppWindowPaint.h"
 #include "AppWindowPdf.h"
 #include <algorithm>
-#include <windowsx.h>
 
 namespace {
 constexpr wchar_t kClassName[] = L"PDFDarkReaderWindow";
@@ -12,6 +11,8 @@ constexpr wchar_t kTitle[] = L"Mosuan 墨算";
 constexpr int kToolbarHeight = 70;
 constexpr UINT WM_MOSUAN_NOTE_VIS = WM_APP + 31;
 constexpr UINT WM_MOSUAN_BG_VIS = WM_APP + 32;
+inline int XParam(LPARAM lp) { return static_cast<int>(static_cast<short>(LOWORD(lp))); }
+inline int YParam(LPARAM lp) { return static_cast<int>(static_cast<short>(HIWORD(lp))); }
 }
 
 bool AppWindow::Create(HINSTANCE instance) {
@@ -55,9 +56,9 @@ LRESULT AppWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
     case WM_KEYDOWN: if (AppWindowInput::HandleKey(*this, wParam) == 0) return 0; break;
     case WM_MOUSEWHEEL: return AppWindowInput::HandleMouseWheel(*this, wParam);
     case WM_VSCROLL: return AppWindowInput::HandleVScroll(*this, wParam);
-    case WM_LBUTTONDOWN: return AppWindowInput::HandleLButtonDown(*this, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
-    case WM_MOUSEMOVE: return AppWindowInput::HandleMouseMove(*this, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
-    case WM_LBUTTONUP: return AppWindowInput::HandleLButtonUp(*this, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
+    case WM_LBUTTONDOWN: return AppWindowInput::HandleLButtonDown(*this, XParam(lParam), YParam(lParam), wParam);
+    case WM_MOUSEMOVE: return AppWindowInput::HandleMouseMove(*this, XParam(lParam), YParam(lParam), wParam);
+    case WM_LBUTTONUP: return AppWindowInput::HandleLButtonUp(*this, XParam(lParam), YParam(lParam), wParam);
     case WM_POINTERDOWN: return AppWindowInput::HandlePointerDown(*this, wParam, lParam);
     case WM_POINTERUPDATE: return AppWindowInput::HandlePointerUpdate(*this, wParam, lParam);
     case WM_POINTERUP: return AppWindowInput::HandlePointerUp(*this, wParam, lParam);
