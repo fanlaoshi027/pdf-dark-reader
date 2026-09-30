@@ -37,9 +37,17 @@ LRESULT AppWindowInput::HandleKey(AppWindow& app, WPARAM key) {
     return 1;
 }
 
-LRESULT AppWindowInput::HandleMouseWheel(AppWindow& app, WPARAM wParam) {
+LRESULT AppWindowInput::HandleMouseWheel(AppWindow& app, WPARAM wParam, LPARAM lParam) {
     const int steps = -(GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA);
-    AppWindowPdf::Scroll(app, steps * 90);
+    const POINT screen{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+    POINT p = screen;
+    ScreenToClient(app.hwnd(), &p);
+    RECT rc{}; GetClientRect(app.hwnd(), &rc);
+    if (PdfThumbnailRail::Contains(p.x, p.y, rc)) {
+        PdfThumbnailRail::Scroll(app, steps * 54);
+    } else {
+        AppWindowPdf::Scroll(app, steps * 90);
+    }
     return 0;
 }
 
