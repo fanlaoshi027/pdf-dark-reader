@@ -11,6 +11,7 @@
 #include "InkToolState.h"
 #include "Core/MosuanState.h"
 #include "Core/InkToolStateAdapter.h"
+#include "Core/InkDirtyRegion.h"
 
 class AppWindow {
 public:
@@ -42,6 +43,11 @@ public:
     MosuanTool activeTool() const noexcept { return mosuanAdapter_.Tool(); }
     InvertSettings& invertSettings() noexcept { return invertSettings_; }
     bool layerPanelOpen() const noexcept { return layerPanelOpen_; }
+
+    void MarkInkDirty(const RECT& rect) noexcept { inkDirty_.Include(rect); }
+    bool HasInkDirty() const noexcept { return inkDirty_.dirty; }
+    RECT InkDirtyRect() const noexcept { return inkDirty_.rect; }
+    void ClearInkDirty() noexcept { inkDirty_.Clear(); }
 
     void SetPageIndex(int value) noexcept { pageIndex_ = value; inkDocument_.SetCurrentPage(value); ink_.Cancel(); }
     void SetRenderSize(int width, int height) noexcept { renderWidth_ = width; renderHeight_ = height; }
@@ -85,6 +91,7 @@ private:
     MosuanState mosuanState_;
     InkToolStateAdapter mosuanAdapter_;
     InkToolState inkState_;
+    InkDirtyRegion inkDirty_;
     std::vector<std::uint8_t> pixels_;
     int pageIndex_ = 0, renderWidth_ = 0, renderHeight_ = 0, scrollY_ = 0;
     double zoom_ = 1.0;
