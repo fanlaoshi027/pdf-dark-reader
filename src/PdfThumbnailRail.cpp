@@ -56,7 +56,7 @@ void PdfThumbnailRail::ResetCache() {
 void PdfThumbnailRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
     if (!app.pdf().IsOpen()) return;
 
-    RECT rail{0, kTop, kWidth, client.bottom};
+    RECT rail{0, kTop, kWidth, static_cast<int>(client.bottom)};
     Fill(hdc, rail, RGB(24, 26, 31));
 
     SetBkMode(hdc, TRANSPARENT);
@@ -65,7 +65,8 @@ void PdfThumbnailRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
     DrawTextW(hdc, L"PDF", -1, &title, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
     const int count = app.pdf().PageCount();
-    const int viewport = (std::max)(1, client.bottom - (kTop + kHeaderHeight));
+    const int clientBottom = static_cast<int>(client.bottom);
+    const int viewport = (std::max)(1, clientBottom - (kTop + kHeaderHeight));
     const int contentHeight = kTopPadding + count * (kThumbH + kGap);
     const int maxScroll = (std::max)(0, contentHeight - viewport);
     g_scrollY = std::clamp(g_scrollY, 0, maxScroll);
@@ -76,7 +77,7 @@ void PdfThumbnailRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
 
     for (int page = first; page <= last; ++page) {
         const int y = kTop + kHeaderHeight + kTopPadding + page * (kThumbH + kGap) - g_scrollY;
-        if (y > client.bottom) break;
+        if (y > clientBottom) break;
         if (y + kThumbH < kTop + kHeaderHeight) continue;
 
         RECT card{kLeft, y, kLeft + kThumbW, y + kThumbH};
@@ -117,14 +118,15 @@ void PdfThumbnailRail::Paint(AppWindow& app, HDC hdc, const RECT& client) {
 }
 
 bool PdfThumbnailRail::Contains(int x, int y, const RECT& client) {
-    return x >= 0 && x < kWidth && y >= kTop + kHeaderHeight && y < client.bottom;
+    return x >= 0 && x < kWidth && y >= kTop + kHeaderHeight && y < static_cast<int>(client.bottom);
 }
 
 void PdfThumbnailRail::Scroll(AppWindow& app, int delta) {
     if (!app.pdf().IsOpen()) return;
     RECT client{};
     GetClientRect(app.hwnd(), &client);
-    const int viewport = (std::max)(1, client.bottom - (kTop + kHeaderHeight));
+    const int clientBottom = static_cast<int>(client.bottom);
+    const int viewport = (std::max)(1, clientBottom - (kTop + kHeaderHeight));
     const int contentHeight = kTopPadding + app.pdf().PageCount() * (kThumbH + kGap);
     const int maxScroll = (std::max)(0, contentHeight - viewport);
     g_scrollY = std::clamp(g_scrollY + delta, 0, maxScroll);
