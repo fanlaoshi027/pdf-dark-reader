@@ -65,9 +65,12 @@ bool LayerSystem::Create(HWND parent){
     WNDCLASSEXW wc{};wc.cbSize=sizeof(wc);wc.hInstance=GetModuleHandleW(nullptr);wc.lpfnWndProc=&LayerSystem::OverlayProc;wc.lpszClassName=kOverlayClass;wc.hCursor=LoadCursorW(nullptr,IDC_CROSS);wc.hbrBackground=nullptr;
     RegisterClassExW(&wc);
     overlay_=CreateWindowExW(WS_EX_NOACTIVATE,kOverlayClass,L"",WS_CHILD|WS_VISIBLE,0,0,0,0,parent_,nullptr,GetModuleHandleW(nullptr),this);
-    if(!overlay_)return false;UpdateHitTest();return true;
+    if(!overlay_)return false;
+    nativeInk_.Initialize(overlay_);
+    UpdateHitTest();
+    return true;
 }
-void LayerSystem::Resize(const RECT& viewport){if(!overlay_)return;MoveWindow(overlay_,viewport.left,viewport.top,(std::max)(0L,viewport.right-viewport.left),(std::max)(0L,viewport.bottom-viewport.top),TRUE);ShowWindow(overlay_,mosuanVisible_?SW_SHOWNOACTIVATE:SW_HIDE);InvalidateRect(overlay_,nullptr,FALSE);}
+void LayerSystem::Resize(const RECT& viewport){if(!overlay_)return;MoveWindow(overlay_,viewport.left,viewport.top,(std::max)(0L,viewport.right-viewport.left),(std::max)(0L,viewport.bottom-viewport.top),TRUE);nativeInk_.Resize();ShowWindow(overlay_,mosuanVisible_?SW_SHOWNOACTIVATE:SW_HIDE);InvalidateRect(overlay_,nullptr,FALSE);}
 void LayerSystem::SetTransform(const PdfViewTransform& transform){transform_=transform;if(overlay_)InvalidateRect(overlay_,nullptr,FALSE);}
 void LayerSystem::SetMosuanVisible(bool visible){mosuanVisible_=visible;if(overlay_){ShowWindow(overlay_,visible?SW_SHOWNOACTIVATE:SW_HIDE);UpdateHitTest();}}
 POINT LayerSystem::PdfToView(double pdfX,double pdfY)const{return POINT{static_cast<LONG>(std::lround(transform_.originX+pdfX*transform_.scale)),static_cast<LONG>(std::lround(transform_.originY+pdfY*transform_.scale))};}
@@ -99,7 +102,6 @@ void LayerSystem::UpdatePen(UINT32 pointerId,POINT screenPoint,float pressure){
 void LayerSystem::EndPen(UINT32 pointerId){if(!penDown_||pointerId!=activePointerId_)return;if(tool_==MosuanTool::Lasso)FinishLasso();penDown_=false;activePointerId_=0;ReleaseCapture();InvalidateRect(overlay_,nullptr,FALSE);}
 
 void LayerSystem::EraseAt(POINT viewPoint){
-    const double scale=transform_.scale>0?transform_.scale:1.0;const double r=kEraserRadiusPx/scale;const double r2=r*r;
     strokes_.erase(std::remove_if(strokes_.begin(),strokes_.end(),[&](const InkStroke& s){for(const auto& p:s.points){const POINT v=PdfToView(p.pdfX,p.pdfY);const double dx=v.x-viewPoint.x,dy=v.y-viewPoint.y;if(dx*dx+dy*dy<=kEraserRadiusPx*kEraserRadiusPx)return true;}return false;}),strokes_.end());
     selectedStrokes_.clear();InvalidateRect(overlay_,nullptr,FALSE);
 }
@@ -114,7 +116,7 @@ void LayerSystem::PaintOverlay(HDC hdc){
         if(points.size()==1){const auto& p=points.front();const POINT v=PdfToView(p.x,p.y);const REAL width=static_cast<REAL>((std::max)(1.0,PressureWidth(p.pressure)*transform_.scale));SolidBrush brush(selected?Color(255,40,120,255):color);graphics.FillEllipse(&brush,v.x-width*.5f,v.y-width*.5f,width,width);continue;}
         for(size_t i=1;i<points.size();++i){const auto&a=points[i-1];const auto&b=points[i];const POINT va=PdfToView(a.x,a.y),vb=PdfToView(b.x,b.y);REAL width=static_cast<REAL>((std::max)(1.0,PressureWidth((a.pressure+b.pressure)*.5f)*transform_.scale));Pen pen(selected?Color(255,40,120,255):color,width);pen.SetStartCap(LineCapRound);pen.SetEndCap(LineCapRound);pen.SetLineJoin(LineJoinRound);graphics.DrawLine(&pen,static_cast<REAL>(va.x),static_cast<REAL>(va.y),static_cast<REAL>(vb.x),static_cast<REAL>(vb.y));}
     }
-    if(tool_==MosuanTool::Lasso&&!lassoPoints_.empty()){Pen lassoPen(Color(230,35,90,180),1.5f);lassoPen.SetDashStyle(DashStyleDash);for(size_t i=1;i<lassoPoints_.size();++i)graphics.DrawLine(&lassoPen,(REAL)lassoPoints_[i-1].x,(REAL)lassoPoints_[i].y,(REAL)lassoPoints_[i].x,(REAL)lassoPoints_[i].y);}
+    if(tool_==MosuanTool::Lasso&&!lassoPoints_.empty()){Pen lassoPen(Color(230,35,90,180),1.5f);lassoPen.SetDashStyle(DashStyleDash);for(size_t i=1;i<lassoPoints_.size();++i)graphics.DrawLine(&lassoPen,(REAL)lassoPoints_[i-1].x,(REAL)lassoPoints_[i-1].y,(REAL)lassoPoints_[i].x,(REAL)lassoPoints_[i].y);}
 }
 void LayerSystem::UpdateHitTest(){if(overlay_)InvalidateRect(overlay_,nullptr,FALSE);}
 
@@ -122,24 +124,22 @@ LRESULT CALLBACK LayerSystem::OverlayProc(HWND hwnd,UINT message,WPARAM wParam,L
     auto*self=reinterpret_cast<LayerSystem*>(GetWindowLongPtrW(hwnd,GWLP_USERDATA));if(message==WM_NCCREATE){const auto*cs=reinterpret_cast<CREATESTRUCTW*>(lParam);self=static_cast<LayerSystem*>(cs->lpCreateParams);SetWindowLongPtrW(hwnd,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(self));}if(!self)return DefWindowProcW(hwnd,message,wParam,lParam);
     switch(message){
     case WM_NCHITTEST:return(self->mosuanActive_&&self->penEnabled_)?HTCLIENT:HTTRANSPARENT;
-    case WM_POINTERDOWN:{const UINT32 id=GET_POINTERID_WPARAM(wParam);POINTER_INFO info{};POINTER_PEN_INFO pen{};if(!GetPointerInfo(id,&info)||info.pointerType!=PT_PEN||!GetPointerPenInfo(id,&pen))return 0;self->BeginPen(id,info.ptPixelLocation,pen.pressure/1024.0f);return 0;}
-    case WM_POINTERUPDATE:{const UINT32 id=GET_POINTERID_WPARAM(wParam);if(!self->penDown_)return 0;POINTER_INFO info{};POINTER_PEN_INFO pen{};if(!GetPointerInfo(id,&info)||!GetPointerPenInfo(id,&pen))return 0;
+    case WM_POINTERDOWN:{
+        if(self->nativeInk_.IsAvailable()) return 0;
+        const UINT32 id=GET_POINTERID_WPARAM(wParam);POINTER_INFO info{};POINTER_PEN_INFO pen{};if(!GetPointerInfo(id,&info)||info.pointerType!=PT_PEN||!GetPointerPenInfo(id,&pen))return 0;self->BeginPen(id,info.ptPixelLocation,pen.pressure/1024.0f);return 0;}
+    case WM_POINTERUPDATE:{
+        if(self->nativeInk_.IsAvailable()) return 0;
+        const UINT32 id=GET_POINTERID_WPARAM(wParam);if(!self->penDown_)return 0;POINTER_INFO info{};POINTER_PEN_INFO pen{};if(!GetPointerInfo(id,&info)||!GetPointerPenInfo(id,&pen))return 0;
         UINT32 count=0;
         if(GetPointerPenInfoHistory(id,&count,nullptr) && count>1){
             std::vector<POINTER_PEN_INFO> history(count);
             if(GetPointerPenInfoHistory(id,&count,history.data())){
-                // Windows returns the newest sample first. Feed the coalesced
-                // samples back in chronological order so fast handwriting does
-                // not lose points when the UI thread receives a burst.
-                for(UINT32 i=count;i>0;--i){
-                    const auto& sample=history[i-1];
-                    self->UpdatePen(id,sample.pointerInfo.ptPixelLocation,sample.pressure/1024.0f);
-                }
+                for(UINT32 i=count;i>0;--i){const auto& sample=history[i-1];self->UpdatePen(id,sample.pointerInfo.ptPixelLocation,sample.pressure/1024.0f);}
                 return 0;
             }
         }
         self->UpdatePen(id,info.ptPixelLocation,pen.pressure/1024.0f);return 0;}
-    case WM_POINTERUP:self->EndPen(GET_POINTERID_WPARAM(wParam));return 0;
+    case WM_POINTERUP:{if(self->nativeInk_.IsAvailable())return 0;self->EndPen(GET_POINTERID_WPARAM(wParam));return 0;}
     case WM_CAPTURECHANGED:self->penDown_=false;self->activePointerId_=0;return 0;
     case WM_ERASEBKGND:return 1;
     case WM_PAINT:{PAINTSTRUCT ps{};HDC hdc=BeginPaint(hwnd,&ps);self->PaintOverlay(hdc);EndPaint(hwnd,&ps);return 0;}
