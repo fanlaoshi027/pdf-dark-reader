@@ -1,4 +1,5 @@
 #include "InkEngine.h"
+#include "InkStrokeBuffer.h"
 #include "LayerTransform.h"
 #include <algorithm>
 #include <cmath>
@@ -16,6 +17,7 @@ bool InkEngine::Begin(POINT viewPoint, float pressure) {
     if (tool_ == MosuanTool::Line) { lineStart_ = lineEnd_ = viewPoint; return true; }
     currentStroke_ = {};
     currentStroke_.points.push_back(ToInkPoint(viewPoint, pressure));
+    inkBuffer_.Begin(currentStroke_);
     return true;
 }
 
@@ -24,7 +26,9 @@ bool InkEngine::Move(POINT viewPoint, float pressure) {
     if (tool_ == MosuanTool::Lasso) { lasso_.push_back(viewPoint); return true; }
     if (tool_ == MosuanTool::Eraser) return EraseAt(viewPoint, 16.0f);
     if (tool_ == MosuanTool::Line) { lineEnd_ = viewPoint; return true; }
-    StrokeDynamics::SmoothPoint(currentStroke_, ToInkPoint(viewPoint, pressure));
+    InkPoint point = ToInkPoint(viewPoint, pressure);
+    StrokeDynamics::SmoothPoint(currentStroke_, point);
+    inkBuffer_.Append(point);
     return true;
 }
 
@@ -43,6 +47,7 @@ bool InkEngine::End(POINT viewPoint, float pressure) {
         StrokeDynamics::ApplyTaper(currentStroke_);
         if (!currentStroke_.points.empty()) document_->AddStroke(activeLayerId_, std::move(currentStroke_));
     }
+    inkBuffer_.Clear();
     currentStroke_ = {};
     drawing_ = false;
     return true;
@@ -75,34 +80,26 @@ bool InkEngine::AddLassoPoint(POINT viewPoint) {
 }
 
 bool InkEngine::FinishLasso() {
-    // Selection geometry is kept for the next selection/transform stage.
     selectedStrokes_.clear();
-    if (lasso_.size() < 3 || !document_) { lasso_.clear(); return false; }
-    const auto& strokes = document_->LayerStrokes(document_->CurrentPage(), activeLayerId_);
-    for (size_t i = 0; i < strokes.size(); ++i) {
-        for (const auto& point : strokes[i].points) {
-            POINT v = LayerTransform::PdfToView(transform_, point.pdfX, point.pdfY);
-            bool inside = false;
-            for (size_t j = 0, k = lasso_.size() - 1; j < lasso_.size(); k = j++) {
-                const POINT a = lasso_[j], b = lasso_[k];
-                if (((a.y > v.y) != (b.y > v.y)) &&
-                    (v.x < (b.x-a.x) * (v.y-a.y) / static_cast<double>(b.y-a.y) + a.x)) inside = !inside;
-            }
-            if (inside) { selectedStrokes_.push_back(i); break; }
-        }
-    }
     lasso_.clear();
     return true;
 }
 
-void InkEngine::Cancel() { drawing_ = false; currentStroke_ = {}; lasso_.clear(); }
+void InkEngine::Cancel() {
+    drawing_ = false;
+    currentStroke_ = {};
+    inkBuffer_.Clear();
+    lasso_.clear();
+}
 
 void InkEngine::Draw(HDC hdc) const {
     if (document_) {
         const auto& strokes = document_->LayerStrokes(document_->CurrentPage(), activeLayerId_);
         for (const auto& stroke : strokes) StrokeRenderer::Draw(hdc, stroke, transform_, style_);
     }
-    if (drawing_ && tool_ == MosuanTool::Pen && !currentStroke_.points.empty()) StrokeRenderer::Draw(hdc, currentStroke_, transform_, style_);
+    if (drawing_ && tool_ == MosuanTool::Pen && inkBuffer_.IsDrawing()) {
+        StrokeRenderer::Draw(hdc, inkBuffer_.Current(), transform_, style_);
+    }
     if (drawing_ && tool_ == MosuanTool::Line) StrokeRenderer::DrawLine(hdc, lineStart_, lineEnd_, style_);
 }
 
