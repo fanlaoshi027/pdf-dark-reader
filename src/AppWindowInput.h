@@ -9,4 +9,7 @@ public:
     static LRESULT HandleLButtonDown(AppWindow& app, int x, int y, WPARAM flags);
     static LRESULT HandleMouseMove(AppWindow& app, int x, int y, WPARAM flags);
     static LRESULT HandleLButtonUp(AppWindow& app, int x, int y, WPARAM flags);
+    static LRESULT HandlePointerDown(AppWindow& app, WPARAM wParam, LPARAM lParam);
+    static LRESULT HandlePointerUpdate(AppWindow& app, WPARAM wParam, LPARAM lParam);
+    static LRESULT HandlePointerUp(AppWindow& app, WPARAM wParam, LPARAM lParam);
 };
