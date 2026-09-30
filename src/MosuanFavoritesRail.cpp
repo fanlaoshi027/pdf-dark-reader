@@ -4,19 +4,11 @@
 
 namespace {
 COLORREF BrushColor(const BrushState& state) {
-    switch (state.color) {
-    case InkColor::Red: return RGB(220, 55, 55);
-    case InkColor::Blue: return RGB(55, 105, 225);
-    default: return RGB(235, 235, 235);
-    }
+    return static_cast<COLORREF>(state.color);
 }
 
 int BrushWidth(const BrushState& state) {
-    switch (state.width) {
-    case InkWidth::Medium: return 3;
-    case InkWidth::Thick: return 5;
-    default: return 2;
-    }
+    return (std::max)(1, static_cast<int>(state.width));
 }
 }
 
