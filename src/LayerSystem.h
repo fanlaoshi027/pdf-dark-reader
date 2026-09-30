@@ -17,6 +17,7 @@ public:
  POINT PdfToView(double pdfX,double pdfY) const; POINT ViewToPdf(int viewX,int viewY) const;
  void ResetDocumentLayers(); int AddInkLayer(const wchar_t* name); int CreateNoteLayer(const wchar_t* name){return AddInkLayer(name);} bool RemoveLayer(int id); bool SetActiveLayer(int id); int ActiveLayerId() const{return activeLayerId_;} int MosuanLayerId() const{return activeLayerId_;}
  const std::vector<LayerItem>& Layers() const{return layers_;} LayerItem* FindLayer(int id); void SetLayerVisible(int id,bool visible); void SetLayerLocked(int id,bool locked);
+ void RenameLayer(int id,const wchar_t* name); bool CanEditActiveLayer() const;
  void SetBackgroundVisible(bool visible){backgroundVisible_=visible;Invalidate();} bool BackgroundVisible() const{return backgroundVisible_;} void SetPdfVisible(bool visible){pdfVisible_=visible;Invalidate();} bool PdfVisible() const{return pdfVisible_;}
  bool IsLayerVisible(int id) const; bool IsLayerLocked(int id) const;
  void SetActiveLayerId(int id){SetActiveLayer(id);} void ClearInk(); void PaintOverlay(HDC hdc);
