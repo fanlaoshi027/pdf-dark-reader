@@ -32,7 +32,7 @@ add_executable(PDFDarkReader WIN32
     src/Core/InkToolStateAdapter.h
     src/AppWindow.h src/AppWindow.cpp
     src/AppWindowPdf.h src/AppWindowPdf.cpp
-    src/AppWindowInput.h src/AppWindowInput.cpp src/AppWindowMouse.cpp
+    src/AppWindowInput.h src/AppWindowInput.cpp
     src/AppWindowCommands.h src/AppWindowCommands.cpp
     src/AppWindowPaint.h src/AppWindowPaint.cpp
     src/AppWindowToolbar.h src/AppWindowToolbar.cpp
