@@ -1,7 +1,29 @@
 #include "AppWindowInput.h"
 #include "AppWindow.h"
 #include "AppWindowPdf.h"
+#include "MosuanFavoritesRail.h"
+#include "PdfThumbnailRail.h"
 #include <windowsx.h>
+
+namespace {
+constexpr int kToolbarHeight = 70;
+
+bool InPage(AppWindow& app, int x, int y) {
+    if (!app.pdf().IsOpen() || y < kToolbarHeight) return false;
+    RECT rc{}; GetClientRect(app.hwnd(), &rc);
+    return x >= PdfThumbnailRail::kWidth && x < rc.right - MosuanFavoritesRail::kWidth && y < rc.bottom;
+}
+
+float PointerPressure(WPARAM wParam) {
+    const UINT32 id = GET_POINTERID_WPARAM(wParam);
+    POINTER_INFO info{};
+    POINTER_PEN_INFO pen{};
+    if (GetPointerInfo(id, &info) && info.pointerType == PT_PEN && GetPointerPenInfo(id, &pen)) {
+        return static_cast<float>(pen.pressure) / 1024.0f;
+    }
+    return 0.5f;
+}
+}
 
 LRESULT AppWindowInput::HandleKey(AppWindow& app, WPARAM key) {
     if (key == 'O' && (GetKeyState(VK_CONTROL) & 0x8000)) { AppWindowPdf::Open(app); return 0; }
@@ -40,6 +62,67 @@ LRESULT AppWindowInput::HandleVScroll(AppWindow& app, WPARAM wParam) {
     return 0;
 }
 
-LRESULT AppWindowInput::HandlePointerDown(AppWindow&, WPARAM, LPARAM) { return 1; }
-LRESULT AppWindowInput::HandlePointerUpdate(AppWindow&, WPARAM, LPARAM) { return 1; }
-LRESULT AppWindowInput::HandlePointerUp(AppWindow&, WPARAM, LPARAM) { return 1; }
+LRESULT AppWindowInput::HandleLButtonDown(AppWindow& app, int x, int y, WPARAM) {
+    RECT rc{}; GetClientRect(app.hwnd(), &rc);
+    std::size_t slot = 0; bool save = false;
+    if (MosuanFavoritesRail::HitTest(rc, x, y, slot, save)) {
+        MosuanFavoritesRail::Activate(app, slot, save);
+        return 0;
+    }
+    int page = -1;
+    if (PdfThumbnailRail::HitTest(app, x, y, page)) {
+        app.SetPageIndex(page);
+        app.SetScrollY(0);
+        AppWindowPdf::Render(app);
+        app.Refresh();
+        return 0;
+    }
+    if (!InPage(app, x, y)) return 1;
+    SetCapture(app.hwnd());
+    app.ApplyInkState();
+    app.Ink().Begin(POINT{x, y}, 0.5f);
+    app.Refresh();
+    return 0;
+}
+
+LRESULT AppWindowInput::HandleMouseMove(AppWindow& app, int x, int y, WPARAM) {
+    if (GetCapture() != app.hwnd()) return 1;
+    app.Ink().Move(POINT{x, y}, 0.5f);
+    app.Refresh();
+    return 0;
+}
+
+LRESULT AppWindowInput::HandleLButtonUp(AppWindow& app, int x, int y, WPARAM) {
+    if (GetCapture() != app.hwnd()) return 1;
+    app.Ink().End(POINT{x, y}, 0.5f);
+    ReleaseCapture();
+    app.Refresh();
+    return 0;
+}
+
+LRESULT AppWindowInput::HandlePointerDown(AppWindow& app, WPARAM wParam, LPARAM lParam) {
+    const POINT p{static_cast<LONG>(GET_X_LPARAM(lParam)), static_cast<LONG>(GET_Y_LPARAM(lParam))};
+    if (!InPage(app, p.x, p.y)) return 1;
+    SetCapture(app.hwnd());
+    app.ApplyInkState();
+    app.Ink().Begin(p, PointerPressure(wParam));
+    app.Refresh();
+    return 0;
+}
+
+LRESULT AppWindowInput::HandlePointerUpdate(AppWindow& app, WPARAM wParam, LPARAM lParam) {
+    if (GetCapture() != app.hwnd()) return 1;
+    const POINT p{static_cast<LONG>(GET_X_LPARAM(lParam)), static_cast<LONG>(GET_Y_LPARAM(lParam))};
+    app.Ink().Move(p, PointerPressure(wParam));
+    app.Refresh();
+    return 0;
+}
+
+LRESULT AppWindowInput::HandlePointerUp(AppWindow& app, WPARAM wParam, LPARAM lParam) {
+    if (GetCapture() != app.hwnd()) return 1;
+    const POINT p{static_cast<LONG>(GET_X_LPARAM(lParam)), static_cast<LONG>(GET_Y_LPARAM(lParam))};
+    app.Ink().End(p, PointerPressure(wParam));
+    ReleaseCapture();
+    app.Refresh();
+    return 0;
+}
