@@ -7,8 +7,8 @@
 #include <wrl/client.h>
 
 // Native Windows Ink host for the Win32 PDF viewer.
-// The first integration stage hosts InkPresenter beside the existing
-// Pointer/GDI+ path so the legacy renderer can remain as a safe fallback.
+// Ink is used for the primary Pen tool; legacy GDI+ remains available for
+// tools that require application-side geometry (line, lasso, eraser).
 class WindowsInkHost {
 public:
     WindowsInkHost() = default;
@@ -19,12 +19,15 @@ public:
 
     bool Initialize(HWND target);
     bool Resize();
+    void SetEnabled(bool enabled);
     void Shutdown();
     bool IsAvailable() const { return initialized_; }
+    bool IsEnabled() const { return enabled_; }
 
 private:
     HWND target_ = nullptr;
     bool initialized_ = false;
+    bool enabled_ = false;
 
     Microsoft::WRL::ComPtr<ID3D11Device> d3dDevice_;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> d3dContext_;
