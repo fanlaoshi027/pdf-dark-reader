@@ -56,36 +56,25 @@ bool WindowsInkHost::Initialize(HWND target) {
     ComPtr<ID3D11DeviceContext> d3dContext;
 
 #ifdef _DEBUG
-    hr = CreateInkD3DDevice(
-        D3D_DRIVER_TYPE_HARDWARE,
-        baseFlags | D3D11_CREATE_DEVICE_DEBUG,
-        d3dDevice,
-        d3dContext);
+    hr = CreateInkD3DDevice(D3D_DRIVER_TYPE_HARDWARE,
+                            baseFlags | D3D11_CREATE_DEVICE_DEBUG,
+                            d3dDevice, d3dContext);
     if (FAILED(hr)) {
         d3dDevice.Reset();
         d3dContext.Reset();
-        hr = CreateInkD3DDevice(
-            D3D_DRIVER_TYPE_HARDWARE,
-            baseFlags,
-            d3dDevice,
-            d3dContext);
+        hr = CreateInkD3DDevice(D3D_DRIVER_TYPE_HARDWARE,
+                                baseFlags, d3dDevice, d3dContext);
     }
 #else
-    hr = CreateInkD3DDevice(
-        D3D_DRIVER_TYPE_HARDWARE,
-        baseFlags,
-        d3dDevice,
-        d3dContext);
+    hr = CreateInkD3DDevice(D3D_DRIVER_TYPE_HARDWARE,
+                            baseFlags, d3dDevice, d3dContext);
 #endif
 
     if (FAILED(hr)) {
         d3dDevice.Reset();
         d3dContext.Reset();
-        hr = CreateInkD3DDevice(
-            D3D_DRIVER_TYPE_WARP,
-            baseFlags,
-            d3dDevice,
-            d3dContext);
+        hr = CreateInkD3DDevice(D3D_DRIVER_TYPE_WARP,
+                                baseFlags, d3dDevice, d3dContext);
     }
     if (FAILED(hr)) return false;
 
@@ -105,11 +94,8 @@ bool WindowsInkHost::Initialize(HWND target) {
     if (FAILED(dcompTarget->SetRoot(root.Get()))) return false;
 
     ComPtr<IInkDesktopHost> desktopHost;
-    hr = CoCreateInstance(
-        __uuidof(InkDesktopHost),
-        nullptr,
-        CLSCTX_INPROC_SERVER,
-        IID_PPV_ARGS(&desktopHost));
+    hr = CoCreateInstance(__uuidof(InkDesktopHost), nullptr,
+                          CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&desktopHost));
     if (FAILED(hr)) return false;
 
     RECT rc{};
@@ -119,10 +105,7 @@ bool WindowsInkHost::Initialize(HWND target) {
 
     ComPtr<IInkPresenterDesktop> presenter;
     hr = desktopHost->CreateAndInitializeInkPresenter(
-        root.Get(),
-        width,
-        height,
-        IID_PPV_ARGS(&presenter));
+        root.Get(), width, height, IID_PPV_ARGS(&presenter));
     if (FAILED(hr)) return false;
 
     if (FAILED(dcompDevice->Commit())) return false;
@@ -156,6 +139,14 @@ void WindowsInkHost::SetEnabled(bool enabled) {
     enabled_ = enabled;
     dcompRoot_->SetOpacity(enabled ? 1.0f : 0.0f);
     dcompDevice_->Commit();
+}
+
+void WindowsInkHost::Clear() {
+    if (!target_ || !IsWindow(target_)) return;
+    const bool wasEnabled = enabled_;
+    const HWND target = target_;
+    Initialize(target);
+    SetEnabled(wasEnabled);
 }
 
 void WindowsInkHost::Shutdown() {
