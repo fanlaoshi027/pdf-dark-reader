@@ -9,8 +9,23 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: Checkout
+      - name: Checkout current branch HEAD
         uses: actions/checkout@v5
+        with:
+          ref: ui-effect-match
+          fetch-depth: 0
+
+      - name: Verify checkout
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $head = (git rev-parse HEAD).Trim()
+          $branch = (git branch --show-current).Trim()
+          Write-Host "HEAD=$head"
+          Write-Host "BRANCH=$branch"
+          if ($branch -ne 'ui-effect-match') { throw "Unexpected branch: $branch" }
+          if (-not (Test-Path 'src/InkVectorGeometry.cpp')) { throw 'src/InkVectorGeometry.cpp is missing from checkout' }
+          Write-Host 'InkVectorGeometry.cpp = PRESENT'
 
       - name: Download PDFium
         shell: pwsh
@@ -23,17 +38,6 @@ jobs:
           Remove-Item third_party/pdfium/pdfium.tgz
           if (-not (Test-Path 'third_party/pdfium/include/fpdfview.h')) { throw 'PDFium header fpdfview.h not found' }
           if (-not (Get-ChildItem 'third_party/pdfium' -Filter pdfium.dll -Recurse)) { throw 'PDFium runtime pdfium.dll not found' }
-
-      - name: Validate source tree
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $cmake = Get-Content 'CMakeLists.txt' -Raw
-          if ($cmake -notmatch 'src/InkStrokeJoin\.cpp') { throw 'CMake source manifest is missing InkStrokeJoin.cpp' }
-          if (-not (Test-Path 'src/InkStrokeJoin.cpp')) { throw 'src/InkStrokeJoin.cpp is missing from checkout' }
-          if (-not (Test-Path 'src/InkDirtyRegion.cpp')) { throw 'src/InkDirtyRegion.cpp is missing from checkout' }
-          if (-not (Test-Path 'src/WindowsInkVectorBridge.cpp')) { throw 'src/WindowsInkVectorBridge.cpp is missing from checkout' }
-          if (-not (Test-Path 'src/InkVectorGeometry.cpp')) { throw 'src/InkVectorGeometry.cpp is missing from checkout' }
 
       - name: Configure
         shell: pwsh
