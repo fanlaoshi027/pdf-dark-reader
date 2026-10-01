@@ -20,7 +20,6 @@ set(PDF_DARK_READER_SOURCES
     src/main.cpp
     src/AppWindow.h src/AppWindow.cpp
     src/InvertSettings.h src/InvertSettings.cpp
-
     src/PdfDocument.h src/PdfDocument.cpp
     src/PdfRenderSettings.h
     src/PdfPageCache.h src/PdfPageCache.cpp
@@ -33,7 +32,6 @@ set(PDF_DARK_READER_SOURCES
     src/PdfViewStateBridge.h src/PdfViewStateBridge.cpp
     src/DocumentViewport.h src/DocumentViewport.cpp
     src/DocumentViewportAdapter.h src/DocumentViewportAdapter.cpp
-
     src/VectorStroke.h
     src/VectorStrokeBuffer.h src/VectorStrokeBuffer.cpp
     src/InkSample.h
@@ -79,13 +77,11 @@ set(PDF_DARK_READER_SOURCES
     src/InkDirtyRegion.h src/InkDirtyRegion.cpp
     src/DocumentInkBinding.h src/DocumentInkBinding.cpp
     src/DocumentInkViewportSync.h src/DocumentInkViewportSync.cpp
-
     src/InkLatencyProfile.h src/InkLatencyProfile.cpp
     src/InkPrediction.h src/InkPrediction.cpp
     src/InkPredictionFilter.h src/InkPredictionFilter.cpp
     src/InkVelocityEstimator.h src/InkVelocityEstimator.cpp
     src/InkAdaptiveSmoothing.h src/InkAdaptiveSmoothing.cpp
-
     src/WindowsInkPointerAdapter.h src/WindowsInkPointerAdapter.cpp
     src/WindowsInkPointerRouter.h src/WindowsInkPointerRouter.cpp
     src/WindowsInkPointerCapture.h src/WindowsInkPointerCapture.cpp
@@ -94,7 +90,6 @@ set(PDF_DARK_READER_SOURCES
     src/WindowsInkInputSession.h src/WindowsInkInputSession.cpp
     src/WindowsInkHistoryAdapter.h src/WindowsInkHistoryAdapter.cpp
     src/WindowsInkVectorBridge.h src/WindowsInkVectorBridge.cpp
-
     src/LayerSystem.h src/LayerSystem.cpp
     src/ViewTransform.h
     src/ViewTransformState.h
@@ -110,17 +105,20 @@ set(PDF_DARK_READER_SOURCES
     src/TopToolbar.cpp
 )
 
-add_executable(PDFDarkReader WIN32 ${PDF_DARK_READER_SOURCES})
+foreach(source IN LISTS PDF_DARK_READER_SOURCES)
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
+        message(FATAL_ERROR "Missing source file declared by CMake: ${source}")
+    endif()
+endforeach()
 
+add_executable(PDFDarkReader WIN32 ${PDF_DARK_READER_SOURCES})
 target_include_directories(PDFDarkReader PRIVATE "${PDFIUM_INCLUDE_DIR}")
 target_compile_definitions(PDFDarkReader PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
 target_compile_options(PDFDarkReader PRIVATE /utf-8 /W4)
 target_link_libraries(PDFDarkReader PRIVATE "${PDFIUM_LIBRARY}" user32 gdi32 shell32 comdlg32 d3d11 dxgi)
 
 add_custom_command(TARGET PDFDarkReader POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${PDFIUM_DIR}/bin/pdfium.dll"
-            "$<TARGET_FILE_DIR:PDFDarkReader>/pdfium.dll"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PDFIUM_DIR}/bin/pdfium.dll" "$<TARGET_FILE_DIR:PDFDarkReader>/pdfium.dll"
 )
 
 install(TARGETS PDFDarkReader RUNTIME DESTINATION .)
