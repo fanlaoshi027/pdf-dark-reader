@@ -1,9 +1,10 @@
 #pragma once
 
-#include "InkVectorGeometry.h"
+#include "InkStrokeTessellator.h"
+#include <vector>
 
 class InkVectorRenderer {
 public:
     virtual ~InkVectorRenderer() = default;
-    virtual void Render(const InkStrokeGeometry& geometry) = 0;
+    virtual void Render(const std::vector<InkTriangle>& geometry) = 0;
 };
