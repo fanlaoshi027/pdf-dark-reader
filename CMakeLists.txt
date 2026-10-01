@@ -40,6 +40,10 @@ add_executable(PDFDarkReader WIN32
     src/PdfViewController.cpp
     src/PdfViewStateBridge.h
     src/PdfViewStateBridge.cpp
+    src/DocumentViewport.h
+    src/DocumentViewport.cpp
+    src/DocumentViewportAdapter.h
+    src/DocumentViewportAdapter.cpp
     src/LayerSystem.h
     src/LayerSystem.cpp
     src/WindowsInkHost.h
