@@ -4,14 +4,11 @@
 #include <cstdint>
 #include <vector>
 #include "WindowsInkHost.h"
+#include "ViewTransform.h"
 
-struct PdfViewTransform {
-    double scale = 1.0;
-    int originX = 0;
-    int originY = 0;
-    int pageWidth = 0;
-    int pageHeight = 0;
-};
+// Compatibility alias: LayerSystem no longer owns a PDF transform.
+// The transform is shared by the independent PDF viewer and Mosuan engine.
+using PdfViewTransform = ViewTransform;
 
 struct InkPoint { double pdfX = 0.0; double pdfY = 0.0; float pressure = 0.5f; };
 struct InkStroke { std::vector<InkPoint> points; };
