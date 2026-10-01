@@ -28,6 +28,8 @@ add_executable(PDFDarkReader WIN32
     src/PdfPageCache.cpp
     src/PdfRenderController.h
     src/PdfRenderController.cpp
+    src/PdfPreloadController.h
+    src/PdfPreloadController.cpp
     src/LayerSystem.h
     src/LayerSystem.cpp
     src/WindowsInkHost.h
