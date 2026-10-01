@@ -2,7 +2,7 @@ name: Windows Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ ui-effect-match ]
   workflow_dispatch:
 
 jobs:
@@ -21,8 +21,6 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile third_party/pdfium/pdfium.tgz
           tar -xzf third_party/pdfium/pdfium.tgz -C third_party/pdfium
           Remove-Item third_party/pdfium/pdfium.tgz
-          Write-Host 'PDFium contents:'
-          Get-ChildItem -Recurse third_party/pdfium | Select-Object FullName
 
       - name: Configure
         shell: pwsh
