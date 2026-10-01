@@ -4,10 +4,9 @@
 #include <cstdint>
 #include <vector>
 #include "WindowsInkHost.h"
+#include "WindowsInkVectorBridge.h"
 #include "ViewTransform.h"
 
-// Compatibility alias: LayerSystem no longer owns a PDF transform.
-// The transform is shared by the independent PDF viewer and Mosuan engine.
 using PdfViewTransform = ViewTransform;
 
 struct InkPoint { double pdfX = 0.0; double pdfY = 0.0; float pressure = 0.5f; };
@@ -30,7 +29,7 @@ public:
     MosuanTool Tool() const { return tool_; }
     void SetPenEnabled(bool enabled);
     bool PenEnabled() const { return penEnabled_; }
-    bool NativeInkActive() const { return nativeInk_.IsAvailable() && nativeInk_.IsEnabled() && tool_ == MosuanTool::Pen; }
+    bool NativeInkActive() const { return vectorInk_.Active() || (nativeInk_.IsAvailable() && nativeInk_.IsEnabled() && tool_ == MosuanTool::Pen); }
     void ClearInk();
     void PaintOverlay(HDC hdc);
 
@@ -47,6 +46,7 @@ private:
     bool StrokeSelected(const InkStroke& stroke) const;
     static float PenWidthPdf(float pressure);
     static float ClampPressure(float pressure);
+    void SyncVectorInkStroke();
 
     HWND parent_ = nullptr;
     HWND overlay_ = nullptr;
@@ -62,4 +62,5 @@ private:
     MosuanTool tool_ = MosuanTool::Pen;
     COLORREF penColor_ = RGB(35,75,150);
     WindowsInkHost nativeInk_;
+    WindowsInkVectorBridge vectorInk_;
 };
