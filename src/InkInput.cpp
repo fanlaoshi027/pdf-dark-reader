@@ -17,8 +17,8 @@ bool InkInput::Update(UINT32 pointerId, InkSampleBuffer& buffer, const InkSample
 bool InkInput::End(UINT32 pointerId, InkSampleBuffer& buffer) {
     if (!active_ || pointerId != pointerId_) return false;
     active_ = false;
-    buffer.Add(buffer.Samples().empty() ? InkSample{} : buffer.Samples().back());
-    return true;
+    pointerId_ = 0;
+    return !buffer.Empty();
 }
 
 void InkInput::Cancel() {
