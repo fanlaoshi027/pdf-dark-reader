@@ -4,14 +4,9 @@
 #include "InkStrokeCap.h"
 #include "InkStrokeJoin.h"
 #include "InkStrokeTessellator.h"
+#include <vector>
 
 class InkVectorGeometry {
 public:
-    static InkStrokeGeometry Build(const std::vector<InkRenderPoint>& input) {
-        auto points = input;
-        InkStrokeJoin::Apply(points);
-        InkStrokeCap::AddRoundStart(points);
-        InkStrokeCap::AddRoundEnd(points);
-        return InkStrokeTessellator::Build(points);
-    }
+    static std::vector<InkTriangle> Build(const std::vector<InkRenderPoint>& input);
 };
