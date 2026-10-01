@@ -32,6 +32,10 @@ add_executable(PDFDarkReader WIN32
     src/ViewTransformMath.h
     src/ViewTransformController.h
     src/ViewTransformController.cpp
+    src/ZoomController.h
+    src/ZoomController.cpp
+    src/PanController.h
+    src/PanController.cpp
     src/MosuanUi.cpp
     src/FavoriteBar.cpp
     src/ToolbarSkin.cpp
