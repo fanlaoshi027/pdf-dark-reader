@@ -1,0 +1,1 @@
+Force a fresh Windows Actions run from the current ui-effect-match HEAD. This marker intentionally changes the tree so GitHub Actions receives a new push-triggered workflow run instead of rerunning an old commit.
