@@ -23,6 +23,11 @@ add_executable(PDFDarkReader WIN32
     src/InvertSettings.cpp
     src/PdfDocument.h
     src/PdfDocument.cpp
+    src/PdfRenderSettings.h
+    src/PdfPageCache.h
+    src/PdfPageCache.cpp
+    src/PdfRenderController.h
+    src/PdfRenderController.cpp
     src/LayerSystem.h
     src/LayerSystem.cpp
     src/WindowsInkHost.h
