@@ -1,9 +1,10 @@
 #include "MosuanLayerPanel.h"
 #include "AppWindow.h"
 #include <algorithm>
+#include <cwchar>
 
 namespace {
-constexpr int kClose=1,kAdd=2,kSelect=3,kPdf=4,kBackground=5,kToggleVisible=6,kToggleLock=7,kDelete=8;
+constexpr int kClose=1,kAdd=2,kSelect=3,kPdf=4,kBackground=5,kToggleVisible=6,kToggleLock=7,kDelete=8,kRename=9,kUp=10,kDown=11;
 constexpr int kFirstNoteY=158,kRowH=44,kGap=4;
 }
 
@@ -17,10 +18,14 @@ bool MosuanLayerPanel::Paint(AppWindow& app,HDC hdc,const RECT& client){
    RECT r{left+10,y,client.right-10,y+44};
    HBRUSH rb=CreateSolidBrush(active?RGB(52,57,67):RGB(31,34,40));FillRect(hdc,&r,rb);DeleteObject(rb);
    SetTextColor(hdc,layer.visible?RGB(205,210,218):RGB(100,104,112));
-   RECT t{r.left+38,r.top,r.right-82,r.bottom};DrawTextW(hdc,layer.name,-1,&t,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_END_ELLIPSIS);
-   RECT eye{r.right-70,r.top,r.right-48,r.bottom};DrawTextW(hdc,layer.visible?L"●":L"○",-1,&eye,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
-   RECT lock{r.right-48,r.top,r.right-26,r.bottom};DrawTextW(hdc,layer.locked?L"■":L"□",-1,&lock,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
-   if(layer.kind==LayerKind::Ink && layer.id>3){RECT del{r.right-26,r.top,r.right-4,r.bottom};SetTextColor(hdc,RGB(170,130,135));DrawTextW(hdc,L"×",-1,&del,DT_CENTER|DT_VCENTER|DT_SINGLELINE);}
+   RECT t{r.left+38,r.top,r.right-122,r.bottom};DrawTextW(hdc,layer.name,-1,&t,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_END_ELLIPSIS);
+   RECT eye{r.right-118,r.top,r.right-96,r.bottom};DrawTextW(hdc,layer.visible?L"●":L"○",-1,&eye,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+   RECT lock{r.right-94,r.top,r.right-72,r.bottom};DrawTextW(hdc,layer.locked?L"■":L"□",-1,&lock,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+   if(layer.kind==LayerKind::Ink && layer.id>3){
+      RECT up{r.right-70,r.top,r.right-50,r.bottom};DrawTextW(hdc,L"↑",-1,&up,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+      RECT down{r.right-50,r.top,r.right-30,r.bottom};DrawTextW(hdc,L"↓",-1,&down,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+      RECT del{r.right-28,r.top,r.right-4,r.bottom};SetTextColor(hdc,RGB(170,130,135));DrawTextW(hdc,L"×",-1,&del,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+   }
  };
  LayerItem bg{1,LayerKind::Background,L"背景层",app.layers().BackgroundVisible(),false};
  LayerItem pdf{2,LayerKind::Pdf,L"PDF",app.layers().PdfVisible(),false};
@@ -35,9 +40,16 @@ bool MosuanLayerPanel::HitTest(const RECT&c,int x,int y,int&a,std::size_t&i){
  const int l=c.right-kWidth;if(x<l||x>=c.right)return false;i=0;a=0;
  if(y<52){a=kClose;return true;} if(y>=62&&y<106){a=kBackground;return true;} if(y>=110&&y<154){a=kPdf;return true;}
  int index=(y-kFirstNoteY)/(kRowH+kGap);
- if(index>=0){int rowY=kFirstNoteY+index*(kRowH+kGap);if(y>=rowY&&y<rowY+kRowH){int rel=x-l-10;if(rel>210){if(rel>236){a=kDelete;}else{a=kToggleLock;}}else if(rel>188){a=kToggleVisible;}else a=kSelect;i=static_cast<std::size_t>(index);return true;}}
- int count=0;for(int yy=kFirstNoteY;;yy+=kRowH+kGap){if(yy+6>=c.bottom)break;++count;}
- int addY=kFirstNoteY+index*(kRowH+kGap);if(index>=0&&y>=addY+kRowH&&y<addY+kRowH+kGap+54){a=kAdd;return true;}
+ if(index>=0){int rowY=kFirstNoteY+index*(kRowH+kGap);if(y>=rowY&&y<rowY+kRowH){int rel=x-l-10;
+     if(rel>=230){a=kDelete;}
+     else if(rel>=210){a=kDown;}
+     else if(rel>=190){a=kUp;}
+     else if(rel>=166){a=kToggleLock;}
+     else if(rel>=142){a=kToggleVisible;}
+     else a=kSelect;
+     i=static_cast<std::size_t>(index);return true;}}
+ int noteCount=0;for(const auto&dummy:app_dummy_layers_){(void)dummy;++noteCount;}
+ int addY=kFirstNoteY+noteCount*(kRowH+kGap);if(y>=addY&&y<addY+54){a=kAdd;return true;}
  return false;
 }
 
@@ -50,7 +62,9 @@ void MosuanLayerPanel::Execute(AppWindow&app,int a,std::size_t index){
    if(id>0){if(a==kSelect){app.layers().SetActiveLayer(id);app.ApplyInkState();}
    else if(a==kToggleVisible){app.layers().SetLayerVisible(id,!app.layers().IsLayerVisible(id));}
    else if(a==kToggleLock){app.layers().SetLayerLocked(id,!app.layers().IsLayerLocked(id));}
-   else if(a==kDelete){app.layers().RemoveLayer(id);app.ApplyInkState();}}
+   else if(a==kDelete){app.layers().RemoveLayer(id);app.ApplyInkState();}
+   else if(a==kUp){app.layers().MoveLayerUp(id);}
+   else if(a==kDown){app.layers().MoveLayerDown(id);}}
  }
  app.Refresh();
 }
