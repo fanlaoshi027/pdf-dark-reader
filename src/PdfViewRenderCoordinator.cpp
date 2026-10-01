@@ -5,14 +5,19 @@ PdfRenderRequest PdfViewRenderCoordinator::MakeRequest(int pageIndex) const {
     return {pageIndex, s.renderWidth, s.renderHeight};
 }
 
-HBITMAP PdfViewRenderCoordinator::RenderCurrent() {
-    return RenderPage(state_.State().pageIndex);
+bool PdfViewRenderCoordinator::RenderCurrent(std::vector<std::uint8_t>& pixels) {
+    return RenderPage(state_.State().pageIndex, pixels);
 }
 
-HBITMAP PdfViewRenderCoordinator::RenderPage(int pageIndex) {
+bool PdfViewRenderCoordinator::RenderPage(int pageIndex,
+                                          std::vector<std::uint8_t>& pixels) {
     const auto request = MakeRequest(pageIndex);
-    if (request.pixelWidth <= 0 || request.pixelHeight <= 0) return nullptr;
+    if (request.pixelWidth <= 0 || request.pixelHeight <= 0) {
+        pixels.clear();
+        return false;
+    }
     return renderer_.RenderPage(request.pageIndex,
                                 request.pixelWidth,
-                                request.pixelHeight);
+                                request.pixelHeight,
+                                pixels);
 }
