@@ -5,7 +5,7 @@
 #include <objidl.h>
 #include <gdiplus.h>
 
-#pragma comment(lib, "gdiplus.lib")
+#pragma comment(lib,"gdiplus.lib")
 
 namespace {
 using namespace Gdiplus;
@@ -19,130 +19,39 @@ constexpr int kEraserRadiusPx = 14;
 
 struct ViewPoint { double x; double y; float pressure; };
 
-float ClampPressure(float p) {
-    if (!std::isfinite(p) || p <= 0.0f) return 0.5f;
-    return std::clamp(p, kMinPressure, kMaxPressure);
-}
-float PressureWidth(float p) {
-    const float t = std::sqrt((ClampPressure(p) - kMinPressure) / (kMaxPressure - kMinPressure));
-    return kMinWidthPdf + (kMaxWidthPdf - kMinWidthPdf) * t;
-}
-ViewPoint CatmullRom(const InkPoint& p0, const InkPoint& p1, const InkPoint& p2, const InkPoint& p3, double t) {
-    const double t2=t*t, t3=t2*t;
-    return {
-        0.5*((2*p1.pdfX)+(-p0.pdfX+p2.pdfX)*t+(2*p0.pdfX-5*p1.pdfX+4*p2.pdfX-p3.pdfX)*t2+(-p0.pdfX+3*p1.pdfX-3*p2.pdfX+p3.pdfX)*t3),
-        0.5*((2*p1.pdfY)+(-p0.pdfY+p2.pdfY)*t+(2*p0.pdfY-5*p1.pdfY+4*p2.pdfY-p3.pdfY)*t2+(-p0.pdfY+3*p1.pdfY-3*p2.pdfY+p3.pdfY)*t3),
-        ClampPressure(static_cast<float>(0.5*((2*p1.pressure)+(-p0.pressure+p2.pressure)*t+(2*p0.pressure-5*p1.pressure+4*p2.pressure-p3.pressure)*t2+(-p0.pressure+3*p1.pressure-3*p2.pressure+p3.pressure)*t3)))
-    };
-}
-std::vector<ViewPoint> BuildSmoothStroke(const std::vector<InkPoint>& input) {
-    std::vector<ViewPoint> out; if(input.empty()) return out;
-    if(input.size()==1){out.push_back({input[0].pdfX,input[0].pdfY,ClampPressure(input[0].pressure)});return out;}
-    out.reserve(input.size()*4);
-    for(size_t i=0;i+1<input.size();++i){
-        const InkPoint& p0=input[i==0?i:i-1]; const InkPoint& p1=input[i];
-        const InkPoint& p2=input[i+1]; const InkPoint& p3=input[i+2<input.size()?i+2:i+1];
-        const double dx=p2.pdfX-p1.pdfX, dy=p2.pdfY-p1.pdfY;
-        const int steps=std::clamp(static_cast<int>(std::ceil(std::sqrt(dx*dx+dy*dy)*1.6)),3,32);
-        for(int s=0;s<steps;++s) out.push_back(CatmullRom(p0,p1,p2,p3,static_cast<double>(s)/steps));
-    }
-    const auto& last=input.back(); out.push_back({last.pdfX,last.pdfY,ClampPressure(last.pressure)}); return out;
-}
-bool PointInPolygon(const POINT& p,const std::vector<POINT>& poly){
-    if(poly.size()<3)return false; bool inside=false;
-    for(size_t i=0,j=poly.size()-1;i<poly.size();j=i++){
-        const bool cross=((poly[i].y>p.y)!=(poly[j].y>p.y)) && (p.x < (poly[j].x-poly[i].x)*(p.y-poly[i].y)/static_cast<double>(poly[j].y-poly[i].y)+poly[i].x);
-        if(cross)inside=!inside;
-    }
-    return inside;
-}
+float ClampPressure(float p){if(!std::isfinite(p)||p<=0.0f)return 0.5f;return std::clamp(p,kMinPressure,kMaxPressure);}
+float PressureWidth(float p){const float t=std::sqrt((ClampPressure(p)-kMinPressure)/(kMaxPressure-kMinPressure));return kMinWidthPdf+(kMaxWidthPdf-kMinWidthPdf)*t;}
+ViewPoint CatmullRom(const InkPoint&p0,const InkPoint&p1,const InkPoint&p2,const InkPoint&p3,double t){const double t2=t*t,t3=t2*t;return{0.5*((2*p1.pdfX)+(-p0.pdfX+p2.pdfX)*t+(2*p0.pdfX-5*p1.pdfX+4*p2.pdfX-p3.pdfX)*t2+(-p0.pdfX+3*p1.pdfX-3*p2.pdfX+p3.pdfX)*t3),0.5*((2*p1.pdfY)+(-p0.pdfY+p2.pdfY)*t+(2*p0.pdfY-5*p1.pdfY+4*p2.pdfY-p3.pdfY)*t2+(-p0.pdfY+3*p1.pdfY-3*p2.pdfY+p3.pdfY)*t3),ClampPressure(static_cast<float>(0.5*((2*p1.pressure)+(-p0.pressure+p2.pressure)*t+(2*p0.pressure-5*p1.pressure+4*p2.pressure-p3.pressure)*t2+(-p0.pressure+3*p1.pressure-3*p2.pressure+p3.pressure)*t3)))};}
+std::vector<ViewPoint> BuildSmoothStroke(const std::vector<InkPoint>&input){std::vector<ViewPoint>out;if(input.empty())return out;if(input.size()==1){out.push_back({input[0].pdfX,input[0].pdfY,ClampPressure(input[0].pressure)});return out;}out.reserve(input.size()*4);for(size_t i=0;i+1<input.size();++i){const InkPoint&p0=input[i==0?i:i-1];const InkPoint&p1=input[i];const InkPoint&p2=input[i+1];const InkPoint&p3=input[i+2<input.size()?i+2:i+1];const double dx=p2.pdfX-p1.pdfX,dy=p2.pdfY-p1.pdfY;const int steps=std::clamp(static_cast<int>(std::ceil(std::sqrt(dx*dx+dy*dy)*1.6)),3,32);for(int s=0;s<steps;++s)out.push_back(CatmullRom(p0,p1,p2,p3,static_cast<double>(s)/steps));}const auto&last=input.back();out.push_back({last.pdfX,last.pdfY,ClampPressure(last.pressure)});return out;}
+bool PointInPolygon(const POINT&p,const std::vector<POINT>&poly){if(poly.size()<3)return false;bool inside=false;for(size_t i=0,j=poly.size()-1;i<poly.size();j=i++){const bool cross=((poly[i].y>p.y)!=(poly[j].y>p.y))&&(p.x<(poly[j].x-poly[i].x)*(p.y-poly[i].y)/static_cast<double>(poly[j].y-poly[i].y)+poly[i].x);if(cross)inside=!inside;}return inside;}
 }
 
 bool LayerSystem::Create(HWND parent){
-    parent_=parent;
-    static bool gdiplusStarted=false;
-    if(!gdiplusStarted){GdiplusStartupInput input;ULONG_PTR token=0;if(GdiplusStartup(&token,&input,nullptr)==Ok)gdiplusStarted=true;}
-    WNDCLASSEXW wc{};wc.cbSize=sizeof(wc);wc.hInstance=GetModuleHandleW(nullptr);wc.lpfnWndProc=&LayerSystem::OverlayProc;wc.lpszClassName=kOverlayClass;wc.hCursor=LoadCursorW(nullptr,IDC_CROSS);wc.hbrBackground=nullptr;
-    RegisterClassExW(&wc);
-    overlay_=CreateWindowExW(WS_EX_NOACTIVATE,kOverlayClass,L"",WS_CHILD|WS_VISIBLE,0,0,0,0,parent_,nullptr,GetModuleHandleW(nullptr),this);
-    if(!overlay_)return false;
-    nativeInk_.Initialize(overlay_);
-    UpdateHitTest();
-    return true;
+    parent_=parent;static bool gdiplusStarted=false;if(!gdiplusStarted){GdiplusStartupInput input;ULONG_PTR token=0;if(GdiplusStartup(&token,&input,nullptr)==Ok)gdiplusStarted=true;}
+    WNDCLASSEXW wc{};wc.cbSize=sizeof(wc);wc.hInstance=GetModuleHandleW(nullptr);wc.lpfnWndProc=&LayerSystem::OverlayProc;wc.lpszClassName=kOverlayClass;wc.hCursor=LoadCursorW(nullptr,IDC_CROSS);wc.hbrBackground=nullptr;RegisterClassExW(&wc);
+    overlay_=CreateWindowExW(WS_EX_NOACTIVATE,kOverlayClass,L"",WS_CHILD|WS_VISIBLE,0,0,0,0,parent_,nullptr,GetModuleHandleW(nullptr),this);if(!overlay_)return false;
+    nativeInk_.Initialize(overlay_);UpdateNativeInkMode();UpdateHitTest();return true;
 }
-void LayerSystem::Resize(const RECT& viewport){if(!overlay_)return;MoveWindow(overlay_,viewport.left,viewport.top,(std::max)(0L,viewport.right-viewport.left),(std::max)(0L,viewport.bottom-viewport.top),TRUE);nativeInk_.Resize();ShowWindow(overlay_,mosuanVisible_?SW_SHOWNOACTIVATE:SW_HIDE);InvalidateRect(overlay_,nullptr,FALSE);}
-void LayerSystem::SetTransform(const PdfViewTransform& transform){transform_=transform;if(overlay_)InvalidateRect(overlay_,nullptr,FALSE);}
-void LayerSystem::SetMosuanVisible(bool visible){mosuanVisible_=visible;if(overlay_){ShowWindow(overlay_,visible?SW_SHOWNOACTIVATE:SW_HIDE);UpdateHitTest();}}
+void LayerSystem::Resize(const RECT&viewport){if(!overlay_)return;MoveWindow(overlay_,viewport.left,viewport.top,(std::max)(0L,viewport.right-viewport.left),(std::max)(0L,viewport.bottom-viewport.top),TRUE);nativeInk_.Resize();ShowWindow(overlay_,mosuanVisible_?SW_SHOWNOACTIVATE:SW_HIDE);InvalidateRect(overlay_,nullptr,FALSE);}
+void LayerSystem::SetTransform(const PdfViewTransform&transform){transform_=transform;if(overlay_)InvalidateRect(overlay_,nullptr,FALSE);}
+void LayerSystem::SetMosuanVisible(bool visible){mosuanVisible_=visible;if(overlay_){ShowWindow(overlay_,visible?SW_SHOWNOACTIVATE:SW_HIDE);UpdateNativeInkMode();UpdateHitTest();}}
+void LayerSystem::UpdateNativeInkMode(){nativeInk_.SetEnabled(mosuanVisible_&&mosuanActive_&&penEnabled_&&tool_==MosuanTool::Pen);}
 POINT LayerSystem::PdfToView(double pdfX,double pdfY)const{return POINT{static_cast<LONG>(std::lround(transform_.originX+pdfX*transform_.scale)),static_cast<LONG>(std::lround(transform_.originY+pdfY*transform_.scale))};}
 POINT LayerSystem::ViewToPdf(int viewX,int viewY)const{const double scale=transform_.scale>0?transform_.scale:1.0;return POINT{static_cast<LONG>(std::lround((viewX-transform_.originX)/scale)),static_cast<LONG>(std::lround((viewY-transform_.originY)/scale))};}
-void LayerSystem::SetTool(MosuanTool tool){tool_=tool;penDown_=false;activePointerId_=0;lassoPoints_.clear();selectedStrokes_.clear();UpdateHitTest();InvalidateRect(overlay_,nullptr,FALSE);}
-void LayerSystem::SetPenEnabled(bool enabled){penEnabled_=enabled;UpdateHitTest();}
+void LayerSystem::SetTool(MosuanTool tool){tool_=tool;penDown_=false;activePointerId_=0;lassoPoints_.clear();selectedStrokes_.clear();UpdateNativeInkMode();UpdateHitTest();InvalidateRect(overlay_,nullptr,FALSE);}
+void LayerSystem::SetPenEnabled(bool enabled){penEnabled_=enabled;UpdateNativeInkMode();UpdateHitTest();}
 void LayerSystem::ClearInk(){strokes_.clear();lassoPoints_.clear();selectedStrokes_.clear();penDown_=false;InvalidateRect(overlay_,nullptr,FALSE);}
-float LayerSystem::ClampPressure(float pressure){return ::ClampPressure(pressure);} float LayerSystem::PenWidthPdf(float pressure){return ::PressureWidth(pressure);}
+float LayerSystem::ClampPressure(float pressure){return ::ClampPressure(pressure);}float LayerSystem::PenWidthPdf(float pressure){return ::PressureWidth(pressure);}
 
-void LayerSystem::BeginPen(UINT32 pointerId,POINT screenPoint,float pressure){
-    if(!overlay_||!mosuanVisible_||!mosuanActive_||!penEnabled_)return;
-    POINT p=screenPoint;ScreenToClient(overlay_,&p);
-    if(tool_==MosuanTool::Eraser){EraseAt(p);activePointerId_=pointerId;penDown_=true;SetCapture(overlay_);return;}
-    if(tool_==MosuanTool::Lasso){lassoPoints_.clear();lassoPoints_.push_back(p);activePointerId_=pointerId;penDown_=true;SetCapture(overlay_);InvalidateRect(overlay_,nullptr,FALSE);return;}
-    const POINT pdf=ViewToPdf(p.x,p.y);
-    InkStroke stroke;stroke.points.push_back({static_cast<double>(pdf.x),static_cast<double>(pdf.y),ClampPressure(pressure)});strokes_.push_back(std::move(stroke));
-    activePointerId_=pointerId;penDown_=true;SetCapture(overlay_);InvalidateRect(overlay_,nullptr,FALSE);
-}
-void LayerSystem::UpdatePen(UINT32 pointerId,POINT screenPoint,float pressure){
-    if(!penDown_||pointerId!=activePointerId_)return;POINT p=screenPoint;ScreenToClient(overlay_,&p);
-    if(tool_==MosuanTool::Eraser){EraseAt(p);return;}
-    if(tool_==MosuanTool::Lasso){if(lassoPoints_.empty()||std::abs(p.x-lassoPoints_.back().x)+std::abs(p.y-lassoPoints_.back().y)>=3)lassoPoints_.push_back(p);InvalidateRect(overlay_,nullptr,FALSE);return;}
-    if(strokes_.empty())return;
-    const POINT pdf=ViewToPdf(p.x,p.y);auto& stroke=strokes_.back();
-    if(tool_==MosuanTool::Line){stroke.points.resize(1);stroke.points.push_back({static_cast<double>(pdf.x),static_cast<double>(pdf.y),ClampPressure(pressure)});InvalidateRect(overlay_,nullptr,FALSE);return;}
-    const auto& last=stroke.points.back();const double dx=pdf.x-last.pdfX,dy=pdf.y-last.pdfY;if(dx*dx+dy*dy<kMinPointDistance*kMinPointDistance)return;
-    stroke.points.push_back({static_cast<double>(pdf.x),static_cast<double>(pdf.y),ClampPressure(pressure)});InvalidateRect(overlay_,nullptr,FALSE);
-}
+void LayerSystem::BeginPen(UINT32 pointerId,POINT screenPoint,float pressure){if(!overlay_||!mosuanVisible_||!mosuanActive_||!penEnabled_||nativeInk_.IsEnabled())return;POINT p=screenPoint;ScreenToClient(overlay_,&p);if(tool_==MosuanTool::Eraser){EraseAt(p);activePointerId_=pointerId;penDown_=true;SetCapture(overlay_);return;}if(tool_==MosuanTool::Lasso){lassoPoints_.clear();lassoPoints_.push_back(p);activePointerId_=pointerId;penDown_=true;SetCapture(overlay_);InvalidateRect(overlay_,nullptr,FALSE);return;}const POINT pdf=ViewToPdf(p.x,p.y);InkStroke stroke;stroke.points.push_back({static_cast<double>(pdf.x),static_cast<double>(pdf.y),ClampPressure(pressure)});strokes_.push_back(std::move(stroke));activePointerId_=pointerId;penDown_=true;SetCapture(overlay_);InvalidateRect(overlay_,nullptr,FALSE);}
+void LayerSystem::UpdatePen(UINT32 pointerId,POINT screenPoint,float pressure){if(nativeInk_.IsEnabled())return;if(!penDown_||pointerId!=activePointerId_)return;POINT p=screenPoint;ScreenToClient(overlay_,&p);if(tool_==MosuanTool::Eraser){EraseAt(p);return;}if(tool_==MosuanTool::Lasso){if(lassoPoints_.empty()||std::abs(p.x-lassoPoints_.back().x)+std::abs(p.y-lassoPoints_.back().y)>=3)lassoPoints_.push_back(p);InvalidateRect(overlay_,nullptr,FALSE);return;}if(strokes_.empty())return;const POINT pdf=ViewToPdf(p.x,p.y);auto&stroke=strokes_.back();if(tool_==MosuanTool::Line){stroke.points.resize(1);stroke.points.push_back({static_cast<double>(pdf.x),static_cast<double>(pdf.y),ClampPressure(pressure)});InvalidateRect(overlay_,nullptr,FALSE);return;}const auto&last=stroke.points.back();const double dx=pdf.x-last.pdfX,dy=pdf.y-last.pdfY;if(dx*dx+dy*dy<kMinPointDistance*kMinPointDistance)return;stroke.points.push_back({static_cast<double>(pdf.x),static_cast<double>(pdf.y),ClampPressure(pressure)});InvalidateRect(overlay_,nullptr,FALSE);}
 void LayerSystem::EndPen(UINT32 pointerId){if(!penDown_||pointerId!=activePointerId_)return;if(tool_==MosuanTool::Lasso)FinishLasso();penDown_=false;activePointerId_=0;ReleaseCapture();InvalidateRect(overlay_,nullptr,FALSE);}
-
-void LayerSystem::EraseAt(POINT viewPoint){
-    strokes_.erase(std::remove_if(strokes_.begin(),strokes_.end(),[&](const InkStroke& s){for(const auto& p:s.points){const POINT v=PdfToView(p.pdfX,p.pdfY);const double dx=v.x-viewPoint.x,dy=v.y-viewPoint.y;if(dx*dx+dy*dy<=kEraserRadiusPx*kEraserRadiusPx)return true;}return false;}),strokes_.end());
-    selectedStrokes_.clear();InvalidateRect(overlay_,nullptr,FALSE);
-}
+void LayerSystem::EraseAt(POINT viewPoint){strokes_.erase(std::remove_if(strokes_.begin(),strokes_.end(),[&](const InkStroke&s){for(const auto&p:s.points){const POINT v=PdfToView(p.pdfX,p.pdfY);const double dx=v.x-viewPoint.x,dy=v.y-viewPoint.y;if(dx*dx+dy*dy<=kEraserRadiusPx*kEraserRadiusPx)return true;}return false;}),strokes_.end());selectedStrokes_.clear();InvalidateRect(overlay_,nullptr,FALSE);}
 void LayerSystem::FinishLasso(){selectedStrokes_.clear();for(size_t i=0;i<strokes_.size();++i)if(StrokeSelected(strokes_[i]))selectedStrokes_.push_back(i);}
-bool LayerSystem::PointInLasso(const POINT& p)const{return PointInPolygon(p,lassoPoints_);}
-bool LayerSystem::StrokeSelected(const InkStroke& stroke)const{if(stroke.points.empty())return false;for(const auto& p:stroke.points)if(PointInLasso(PdfToView(p.pdfX,p.pdfY)))return true;return false;}
+bool LayerSystem::PointInLasso(const POINT&p)const{return PointInPolygon(p,lassoPoints_);}bool LayerSystem::StrokeSelected(const InkStroke&stroke)const{if(stroke.points.empty())return false;for(const auto&p:stroke.points)if(PointInLasso(PdfToView(p.pdfX,p.pdfY)))return true;return false;}
 
-void LayerSystem::PaintOverlay(HDC hdc){
-    if(!mosuanVisible_)return;Graphics graphics(hdc);graphics.SetSmoothingMode(SmoothingModeAntiAlias);graphics.SetPixelOffsetMode(PixelOffsetModeHighQuality);graphics.SetCompositingQuality(CompositingQualityHighQuality);graphics.SetInterpolationMode(InterpolationModeHighQualityBicubic);
-    const Color color(255,GetRValue(penColor_),GetGValue(penColor_),GetBValue(penColor_));
-    for(size_t si=0;si<strokes_.size();++si){const auto& stroke=strokes_[si];if(stroke.points.empty())continue;const auto points=BuildSmoothStroke(stroke.points);if(points.empty())continue;const bool selected=std::find(selectedStrokes_.begin(),selectedStrokes_.end(),si)!=selectedStrokes_.end();
-        if(points.size()==1){const auto& p=points.front();const POINT v=PdfToView(p.x,p.y);const REAL width=static_cast<REAL>((std::max)(1.0,PressureWidth(p.pressure)*transform_.scale));SolidBrush brush(selected?Color(255,40,120,255):color);graphics.FillEllipse(&brush,v.x-width*.5f,v.y-width*.5f,width,width);continue;}
-        for(size_t i=1;i<points.size();++i){const auto&a=points[i-1];const auto&b=points[i];const POINT va=PdfToView(a.x,a.y),vb=PdfToView(b.x,b.y);REAL width=static_cast<REAL>((std::max)(1.0,PressureWidth((a.pressure+b.pressure)*.5f)*transform_.scale));Pen pen(selected?Color(255,40,120,255):color,width);pen.SetStartCap(LineCapRound);pen.SetEndCap(LineCapRound);pen.SetLineJoin(LineJoinRound);graphics.DrawLine(&pen,static_cast<REAL>(va.x),static_cast<REAL>(va.y),static_cast<REAL>(vb.x),static_cast<REAL>(vb.y));}
-    }
-    if(tool_==MosuanTool::Lasso&&!lassoPoints_.empty()){Pen lassoPen(Color(230,35,90,180),1.5f);lassoPen.SetDashStyle(DashStyleDash);for(size_t i=1;i<lassoPoints_.size();++i)graphics.DrawLine(&lassoPen,(REAL)lassoPoints_[i-1].x,(REAL)lassoPoints_[i-1].y,(REAL)lassoPoints_[i].x,(REAL)lassoPoints_[i].y);}
-}
+void LayerSystem::PaintOverlay(HDC hdc){if(!mosuanVisible_||nativeInk_.IsEnabled())return;Graphics graphics(hdc);graphics.SetSmoothingMode(SmoothingModeAntiAlias);graphics.SetPixelOffsetMode(PixelOffsetModeHighQuality);graphics.SetCompositingQuality(CompositingQualityHighQuality);graphics.SetInterpolationMode(InterpolationModeHighQualityBicubic);const Color color(255,GetRValue(penColor_),GetGValue(penColor_),GetBValue(penColor_));for(size_t si=0;si<strokes_.size();++si){const auto&stroke=strokes_[si];if(stroke.points.empty())continue;const auto points=BuildSmoothStroke(stroke.points);if(points.empty())continue;const bool selected=std::find(selectedStrokes_.begin(),selectedStrokes_.end(),si)!=selectedStrokes_.end();if(points.size()==1){const auto&p=points.front();const POINT v=PdfToView(p.x,p.y);const REAL width=static_cast<REAL>((std::max)(1.0,PressureWidth(p.pressure)*transform_.scale));SolidBrush brush(selected?Color(255,40,120,255):color);graphics.FillEllipse(&brush,v.x-width*.5f,v.y-width*.5f,width,width);continue;}for(size_t i=1;i<points.size();++i){const auto&a=points[i-1];const auto&b=points[i];const POINT va=PdfToView(a.x,a.y),vb=PdfToView(b.x,b.y);REAL width=static_cast<REAL>((std::max)(1.0,PressureWidth((a.pressure+b.pressure)*.5f)*transform_.scale));Pen pen(selected?Color(255,40,120,255):color,width);pen.SetStartCap(LineCapRound);pen.SetEndCap(LineCapRound);pen.SetLineJoin(LineJoinRound);graphics.DrawLine(&pen,(REAL)va.x,(REAL)va.y,(REAL)vb.x,(REAL)vb.y);}}if(tool_==MosuanTool::Lasso&&!lassoPoints_.empty()){Pen lassoPen(Color(230,35,90,180),1.5f);lassoPen.SetDashStyle(DashStyleDash);for(size_t i=1;i<lassoPoints_.size();++i)graphics.DrawLine(&lassoPen,(REAL)lassoPoints_[i-1].x,(REAL)lassoPoints_[i-1].y,(REAL)lassoPoints_[i].x,(REAL)lassoPoints_[i].y);}}
+
 void LayerSystem::UpdateHitTest(){if(overlay_)InvalidateRect(overlay_,nullptr,FALSE);}
 
-LRESULT CALLBACK LayerSystem::OverlayProc(HWND hwnd,UINT message,WPARAM wParam,LPARAM lParam){
-    auto*self=reinterpret_cast<LayerSystem*>(GetWindowLongPtrW(hwnd,GWLP_USERDATA));if(message==WM_NCCREATE){const auto*cs=reinterpret_cast<CREATESTRUCTW*>(lParam);self=static_cast<LayerSystem*>(cs->lpCreateParams);SetWindowLongPtrW(hwnd,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(self));}if(!self)return DefWindowProcW(hwnd,message,wParam,lParam);
-    switch(message){
-    case WM_NCHITTEST:return(self->mosuanActive_&&self->penEnabled_)?HTCLIENT:HTTRANSPARENT;
-    case WM_POINTERDOWN:{
-        if(self->nativeInk_.IsAvailable()) return 0;
-        const UINT32 id=GET_POINTERID_WPARAM(wParam);POINTER_INFO info{};POINTER_PEN_INFO pen{};if(!GetPointerInfo(id,&info)||info.pointerType!=PT_PEN||!GetPointerPenInfo(id,&pen))return 0;self->BeginPen(id,info.ptPixelLocation,pen.pressure/1024.0f);return 0;}
-    case WM_POINTERUPDATE:{
-        if(self->nativeInk_.IsAvailable()) return 0;
-        const UINT32 id=GET_POINTERID_WPARAM(wParam);if(!self->penDown_)return 0;POINTER_INFO info{};POINTER_PEN_INFO pen{};if(!GetPointerInfo(id,&info)||!GetPointerPenInfo(id,&pen))return 0;
-        UINT32 count=0;
-        if(GetPointerPenInfoHistory(id,&count,nullptr) && count>1){
-            std::vector<POINTER_PEN_INFO> history(count);
-            if(GetPointerPenInfoHistory(id,&count,history.data())){
-                for(UINT32 i=count;i>0;--i){const auto& sample=history[i-1];self->UpdatePen(id,sample.pointerInfo.ptPixelLocation,sample.pressure/1024.0f);}
-                return 0;
-            }
-        }
-        self->UpdatePen(id,info.ptPixelLocation,pen.pressure/1024.0f);return 0;}
-    case WM_POINTERUP:{if(self->nativeInk_.IsAvailable())return 0;self->EndPen(GET_POINTERID_WPARAM(wParam));return 0;}
-    case WM_CAPTURECHANGED:self->penDown_=false;self->activePointerId_=0;return 0;
-    case WM_ERASEBKGND:return 1;
-    case WM_PAINT:{PAINTSTRUCT ps{};HDC hdc=BeginPaint(hwnd,&ps);self->PaintOverlay(hdc);EndPaint(hwnd,&ps);return 0;}
-    }
-    return DefWindowProcW(hwnd,message,wParam,lParam);
-}
+LRESULT CALLBACK LayerSystem::OverlayProc(HWND hwnd,UINT message,WPARAM wParam,LPARAM lParam){auto*self=reinterpret_cast<LayerSystem*>(GetWindowLongPtrW(hwnd,GWLP_USERDATA));if(message==WM_NCCREATE){const auto*cs=reinterpret_cast<CREATESTRUCTW*>(lParam);self=static_cast<LayerSystem*>(cs->lpCreateParams);SetWindowLongPtrW(hwnd,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(self));}if(!self)return DefWindowProcW(hwnd,message,wParam,lParam);switch(message){case WM_NCHITTEST:return(self->mosuanActive_&&self->penEnabled_)?HTCLIENT:HTTRANSPARENT;case WM_POINTERDOWN:{if(self->nativeInk_.IsEnabled())return 0;const UINT32 id=GET_POINTERID_WPARAM(wParam);POINTER_INFO info{};POINTER_PEN_INFO pen{};if(!GetPointerInfo(id,&info)||info.pointerType!=PT_PEN||!GetPointerPenInfo(id,&pen))return 0;self->BeginPen(id,info.ptPixelLocation,pen.pressure/1024.0f);return 0;}case WM_POINTERUPDATE:{if(self->nativeInk_.IsEnabled())return 0;const UINT32 id=GET_POINTERID_WPARAM(wParam);if(!self->penDown_)return 0;POINTER_INFO info{};POINTER_PEN_INFO pen{};if(!GetPointerInfo(id,&info)||!GetPointerPenInfo(id,&pen))return 0;UINT32 count=0;if(GetPointerPenInfoHistory(id,&count,nullptr)&&count>1){std::vector<POINTER_PEN_INFO>history(count);if(GetPointerPenInfoHistory(id,&count,history.data())){for(UINT32 i=count;i>0;--i){const auto&sample=history[i-1];self->UpdatePen(id,sample.pointerInfo.ptPixelLocation,sample.pressure/1024.0f);}return 0;}}self->UpdatePen(id,info.ptPixelLocation,pen.pressure/1024.0f);return 0;}case WM_POINTERUP:{if(self->nativeInk_.IsEnabled())return 0;self->EndPen(GET_POINTERID_WPARAM(wParam));return 0;}case WM_CAPTURECHANGED:self->penDown_=false;self->activePointerId_=0;return 0;case WM_ERASEBKGND:return 1;case WM_PAINT:{PAINTSTRUCT ps{};HDC hdc=BeginPaint(hwnd,&ps);self->PaintOverlay(hdc);EndPaint(hwnd,&ps);return 0;}}return DefWindowProcW(hwnd,message,wParam,lParam);}
