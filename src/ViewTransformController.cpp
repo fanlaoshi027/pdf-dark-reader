@@ -1,5 +1,6 @@
 #include "ViewTransformController.h"
 #include "ViewTransformMath.h"
+#include <cmath>
 
 void ViewTransformController::SetPage(int pageIndex, double width, double height) {
     state_.pageIndex = pageIndex < 0 ? 0 : pageIndex;
@@ -16,10 +17,12 @@ void ViewTransformController::Pan(double dx, double dy) {
 }
 
 void ViewTransformController::ZoomAround(double newScale, double screenX, double screenY) {
+    if (!std::isfinite(screenX) || !std::isfinite(screenY)) return;
     ViewTransformMath::ZoomAroundScreenPoint(state_, newScale, screenX, screenY);
 }
 
 void ViewTransformController::SetScale(double scale) {
+    if (!std::isfinite(scale)) return;
     state_.scale = ViewTransformMath::ClampScale(scale, 0.1, 8.0);
 }
 
