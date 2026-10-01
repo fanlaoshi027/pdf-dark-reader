@@ -44,6 +44,14 @@ add_executable(PDFDarkReader WIN32
     src/DocumentViewport.cpp
     src/DocumentViewportAdapter.h
     src/DocumentViewportAdapter.cpp
+    src/VectorStroke.h
+    src/VectorStrokeBuffer.h
+    src/VectorStrokeBuffer.cpp
+    src/InkSample.h
+    src/InkSampleBuffer.h
+    src/InkSampleBuffer.cpp
+    src/InkInput.h
+    src/InkInput.cpp
     src/LayerSystem.h
     src/LayerSystem.cpp
     src/WindowsInkHost.h
