@@ -56,8 +56,6 @@ bool WindowsInkHost::Initialize(HWND target) {
     ComPtr<ID3D11DeviceContext> d3dContext;
 
 #ifdef _DEBUG
-    // The debug layer is optional. Do not let a missing Graphics Tools
-    // installation prevent Windows Ink from starting in a development build.
     hr = CreateInkD3DDevice(
         D3D_DRIVER_TYPE_HARDWARE,
         baseFlags | D3D11_CREATE_DEVICE_DEBUG,
@@ -80,8 +78,6 @@ bool WindowsInkHost::Initialize(HWND target) {
         d3dContext);
 #endif
 
-    // WARP keeps the Ink host usable on machines/VMs where a hardware
-    // D3D11 device cannot be created. Normal machines stay on hardware.
     if (FAILED(hr)) {
         d3dDevice.Reset();
         d3dContext.Reset();
@@ -129,8 +125,6 @@ bool WindowsInkHost::Initialize(HWND target) {
         IID_PPV_ARGS(&presenter));
     if (FAILED(hr)) return false;
 
-    // The default InkPresenter input device is Pen. We intentionally keep
-    // the default processing path here: it is the low-latency wet-ink path.
     if (FAILED(dcompDevice->Commit())) return false;
 
     d3dDevice_ = d3dDevice;
@@ -141,6 +135,7 @@ bool WindowsInkHost::Initialize(HWND target) {
     desktopHost_ = desktopHost;
     presenter_ = presenter;
     initialized_ = true;
+    SetEnabled(true);
     return true;
 }
 
@@ -156,7 +151,15 @@ bool WindowsInkHost::Resize() {
     return SUCCEEDED(dcompDevice_->Commit());
 }
 
+void WindowsInkHost::SetEnabled(bool enabled) {
+    if (!initialized_ || !dcompRoot_ || !dcompDevice_) return;
+    enabled_ = enabled;
+    dcompRoot_->SetOpacity(enabled ? 1.0f : 0.0f);
+    dcompDevice_->Commit();
+}
+
 void WindowsInkHost::Shutdown() {
+    enabled_ = false;
     presenter_.Reset();
     desktopHost_.Reset();
     dcompTarget_.Reset();
