@@ -1,5 +1,6 @@
 #include "WindowsInkVectorBridge.h"
 #include <algorithm>
+#include <cmath>
 
 bool WindowsInkVectorBridge::Begin(HWND overlay, UINT32 pointerId, POINT screenPoint, float pressure, double originX, double originY, double scale, std::uint32_t color, float baseWidth) {
     Reset();
