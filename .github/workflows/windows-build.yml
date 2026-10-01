@@ -33,6 +33,7 @@ jobs:
           if (-not (Test-Path 'src/InkStrokeJoin.cpp')) { throw 'src/InkStrokeJoin.cpp is missing from checkout' }
           if (-not (Test-Path 'src/InkDirtyRegion.cpp')) { throw 'src/InkDirtyRegion.cpp is missing from checkout' }
           if (-not (Test-Path 'src/WindowsInkVectorBridge.cpp')) { throw 'src/WindowsInkVectorBridge.cpp is missing from checkout' }
+          if (-not (Test-Path 'src/InkVectorGeometry.cpp')) { throw 'src/InkVectorGeometry.cpp is missing from checkout' }
 
       - name: Configure
         shell: pwsh
