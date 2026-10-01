@@ -3,7 +3,6 @@
 #include <windows.h>
 #include <cstdint>
 #include <vector>
-#include "WindowsInkHost.h"
 #include "WindowsInkVectorBridge.h"
 #include "ViewTransform.h"
 
@@ -29,7 +28,7 @@ public:
     MosuanTool Tool() const { return tool_; }
     void SetPenEnabled(bool enabled);
     bool PenEnabled() const { return penEnabled_; }
-    bool NativeInkActive() const { return vectorInk_.Active() || (nativeInk_.IsAvailable() && nativeInk_.IsEnabled() && tool_ == MosuanTool::Pen); }
+    bool NativeInkActive() const { return vectorInk_.Active(); }
     void ClearInk();
     void PaintOverlay(HDC hdc);
 
@@ -61,6 +60,5 @@ private:
     std::vector<size_t> selectedStrokes_;
     MosuanTool tool_ = MosuanTool::Pen;
     COLORREF penColor_ = RGB(35,75,150);
-    WindowsInkHost nativeInk_;
     WindowsInkVectorBridge vectorInk_;
 };
