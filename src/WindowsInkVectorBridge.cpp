@@ -5,14 +5,22 @@
 bool WindowsInkVectorBridge::Begin(HWND overlay, UINT32 pointerId, POINT screenPoint, float pressure, double originX, double originY, double scale, std::uint32_t color, float baseWidth) {
     Reset();
     if (!overlay) return false;
+
     overlay_ = overlay;
     pointerId_ = pointerId;
     active_ = true;
     stroke_.color = color;
     stroke_.baseWidth = baseWidth;
+
+    POINT clientPoint = screenPoint;
+    if (!ScreenToClient(overlay_, &clientPoint)) {
+        Reset();
+        return false;
+    }
+
     InkSample sample{};
-    sample.x = static_cast<double>(screenPoint.x);
-    sample.y = static_cast<double>(screenPoint.y);
+    sample.x = static_cast<double>(clientPoint.x);
+    sample.y = static_cast<double>(clientPoint.y);
     sample.pressure = std::clamp(pressure, 0.0f, 1.0f);
     samples_.push_back(sample);
     Append(sample, originX, originY, scale);
@@ -21,18 +29,30 @@ bool WindowsInkVectorBridge::Begin(HWND overlay, UINT32 pointerId, POINT screenP
 
 bool WindowsInkVectorBridge::Update(UINT32 pointerId, double originX, double originY, double scale) {
     if (!active_ || pointerId != pointerId_ || !overlay_) return false;
+
     std::vector<InkSample> history;
     if (!history_.Read(pointerId_, history) || history.empty()) return false;
+
+    bool appended = false;
     for (auto sample : history) {
-        if (!samples_.empty() && sample.timestamp != 0 && samples_.back().timestamp != 0 && sample.timestamp <= samples_.back().timestamp) continue;
-        POINT screen{static_cast<LONG>(std::lround(sample.x)), static_cast<LONG>(std::lround(sample.y))};
-        ScreenToClient(overlay_, &screen);
-        sample.x = static_cast<double>(screen.x);
-        sample.y = static_cast<double>(screen.y);
+        if (!samples_.empty() && sample.timestamp != 0 && samples_.back().timestamp != 0 &&
+            sample.timestamp <= samples_.back().timestamp) {
+            continue;
+        }
+
+        POINT clientPoint{
+            static_cast<LONG>(std::lround(sample.x)),
+            static_cast<LONG>(std::lround(sample.y))
+        };
+        if (!ScreenToClient(overlay_, &clientPoint)) continue;
+
+        sample.x = static_cast<double>(clientPoint.x);
+        sample.y = static_cast<double>(clientPoint.y);
         samples_.push_back(sample);
         Append(sample, originX, originY, scale);
+        appended = true;
     }
-    return true;
+    return appended;
 }
 
 bool WindowsInkVectorBridge::End(UINT32 pointerId) {
