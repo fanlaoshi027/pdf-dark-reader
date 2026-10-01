@@ -10,6 +10,36 @@
 
 using Microsoft::WRL::ComPtr;
 
+namespace {
+
+HRESULT CreateInkD3DDevice(
+    D3D_DRIVER_TYPE driverType,
+    UINT flags,
+    ComPtr<ID3D11Device>& device,
+    ComPtr<ID3D11DeviceContext>& context) {
+    const D3D_FEATURE_LEVEL levels[] = {
+        D3D_FEATURE_LEVEL_11_1,
+        D3D_FEATURE_LEVEL_11_0,
+        D3D_FEATURE_LEVEL_10_1,
+        D3D_FEATURE_LEVEL_10_0,
+    };
+
+    D3D_FEATURE_LEVEL level{};
+    return D3D11CreateDevice(
+        nullptr,
+        driverType,
+        nullptr,
+        flags,
+        levels,
+        ARRAYSIZE(levels),
+        D3D11_SDK_VERSION,
+        &device,
+        &level,
+        &context);
+}
+
+}
+
 WindowsInkHost::~WindowsInkHost() {
     Shutdown();
 }
@@ -19,34 +49,60 @@ bool WindowsInkHost::Initialize(HWND target) {
     if (!target || !IsWindow(target)) return false;
     target_ = target;
 
-    UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
-#ifdef _DEBUG
-    flags |= D3D11_CREATE_DEVICE_DEBUG;
-#endif
+    const UINT baseFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+    HRESULT hr = E_FAIL;
 
-    const D3D_FEATURE_LEVEL levels[] = {
-        D3D_FEATURE_LEVEL_11_1,
-        D3D_FEATURE_LEVEL_11_0,
-        D3D_FEATURE_LEVEL_10_1,
-        D3D_FEATURE_LEVEL_10_0,
-    };
-    D3D_FEATURE_LEVEL level{};
     ComPtr<ID3D11Device> d3dDevice;
     ComPtr<ID3D11DeviceContext> d3dContext;
-    HRESULT hr = D3D11CreateDevice(
-        nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, flags,
-        levels, ARRAYSIZE(levels), D3D11_SDK_VERSION,
-        &d3dDevice, &level, &d3dContext);
+
+#ifdef _DEBUG
+    // The debug layer is optional. Do not let a missing Graphics Tools
+    // installation prevent Windows Ink from starting in a development build.
+    hr = CreateInkD3DDevice(
+        D3D_DRIVER_TYPE_HARDWARE,
+        baseFlags | D3D11_CREATE_DEVICE_DEBUG,
+        d3dDevice,
+        d3dContext);
+    if (FAILED(hr)) {
+        d3dDevice.Reset();
+        d3dContext.Reset();
+        hr = CreateInkD3DDevice(
+            D3D_DRIVER_TYPE_HARDWARE,
+            baseFlags,
+            d3dDevice,
+            d3dContext);
+    }
+#else
+    hr = CreateInkD3DDevice(
+        D3D_DRIVER_TYPE_HARDWARE,
+        baseFlags,
+        d3dDevice,
+        d3dContext);
+#endif
+
+    // WARP keeps the Ink host usable on machines/VMs where a hardware
+    // D3D11 device cannot be created. Normal machines stay on hardware.
+    if (FAILED(hr)) {
+        d3dDevice.Reset();
+        d3dContext.Reset();
+        hr = CreateInkD3DDevice(
+            D3D_DRIVER_TYPE_WARP,
+            baseFlags,
+            d3dDevice,
+            d3dContext);
+    }
     if (FAILED(hr)) return false;
 
     ComPtr<IDXGIDevice> dxgiDevice;
     if (FAILED(d3dDevice.As(&dxgiDevice))) return false;
 
     ComPtr<IDCompositionDevice> dcompDevice;
-    if (FAILED(DCompositionCreateDevice(dxgiDevice.Get(), IID_PPV_ARGS(&dcompDevice)))) return false;
+    if (FAILED(DCompositionCreateDevice(
+            dxgiDevice.Get(), IID_PPV_ARGS(&dcompDevice)))) return false;
 
     ComPtr<IDCompositionTarget> dcompTarget;
-    if (FAILED(dcompDevice->CreateTargetForHwnd(target_, TRUE, &dcompTarget))) return false;
+    if (FAILED(dcompDevice->CreateTargetForHwnd(
+            target_, TRUE, &dcompTarget))) return false;
 
     ComPtr<IDCompositionVisual> root;
     if (FAILED(dcompDevice->CreateVisual(&root))) return false;
@@ -54,7 +110,9 @@ bool WindowsInkHost::Initialize(HWND target) {
 
     ComPtr<IInkDesktopHost> desktopHost;
     hr = CoCreateInstance(
-        __uuidof(InkDesktopHost), nullptr, CLSCTX_INPROC_SERVER,
+        __uuidof(InkDesktopHost),
+        nullptr,
+        CLSCTX_INPROC_SERVER,
         IID_PPV_ARGS(&desktopHost));
     if (FAILED(hr)) return false;
 
@@ -65,9 +123,14 @@ bool WindowsInkHost::Initialize(HWND target) {
 
     ComPtr<IInkPresenterDesktop> presenter;
     hr = desktopHost->CreateAndInitializeInkPresenter(
-        root.Get(), width, height, IID_PPV_ARGS(&presenter));
+        root.Get(),
+        width,
+        height,
+        IID_PPV_ARGS(&presenter));
     if (FAILED(hr)) return false;
 
+    // The default InkPresenter input device is Pen. We intentionally keep
+    // the default processing path here: it is the low-latency wet-ink path.
     if (FAILED(dcompDevice->Commit())) return false;
 
     d3dDevice_ = d3dDevice;
@@ -83,10 +146,12 @@ bool WindowsInkHost::Initialize(HWND target) {
 
 bool WindowsInkHost::Resize() {
     if (!initialized_ || !presenter_ || !dcompDevice_ || !target_) return false;
+
     RECT rc{};
     GetClientRect(target_, &rc);
     const float width = static_cast<float>((std::max)(1L, rc.right - rc.left));
     const float height = static_cast<float>((std::max)(1L, rc.bottom - rc.top));
+
     if (FAILED(presenter_->SetSize(width, height))) return false;
     return SUCCEEDED(dcompDevice_->Commit());
 }
