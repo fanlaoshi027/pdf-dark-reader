@@ -10,7 +10,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download PDFium
         shell: pwsh
@@ -21,15 +21,31 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile third_party/pdfium/pdfium.tgz
           tar -xzf third_party/pdfium/pdfium.tgz -C third_party/pdfium
           Remove-Item third_party/pdfium/pdfium.tgz
+          if (-not (Test-Path 'third_party/pdfium/include/fpdfview.h')) { throw 'PDFium header fpdfview.h not found' }
+          if (-not (Get-ChildItem 'third_party/pdfium' -Filter pdfium.dll -Recurse)) { throw 'PDFium runtime pdfium.dll not found' }
+
+      - name: Validate source tree
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $cmake = Get-Content 'CMakeLists.txt' -Raw
+          if ($cmake -notmatch 'src/InkStrokeJoin\.cpp') { throw 'CMake source manifest is missing InkStrokeJoin.cpp' }
+          if (-not (Test-Path 'src/InkStrokeJoin.cpp')) { throw 'src/InkStrokeJoin.cpp is missing from checkout' }
+          if (-not (Test-Path 'src/InkDirtyRegion.cpp')) { throw 'src/InkDirtyRegion.cpp is missing from checkout' }
+          if (-not (Test-Path 'src/WindowsInkVectorBridge.cpp')) { throw 'src/WindowsInkVectorBridge.cpp is missing from checkout' }
 
       - name: Configure
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $pdfium = (Resolve-Path 'third_party/pdfium').Path
           cmake -S . -B build -A x64 "-DPDFIUM_DIR=$pdfium"
 
       - name: Build
-        run: cmake --build build --config Release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cmake --build build --config Release --parallel
 
       - name: Package
         shell: pwsh
