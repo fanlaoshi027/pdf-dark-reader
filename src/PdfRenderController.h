@@ -1,20 +1,39 @@
 #pragma once
 
 #include "PdfDocument.h"
-#include "PdfPageCache.h"
 #include "PdfRenderSettings.h"
+#include <cstdint>
+#include <unordered_map>
+#include <vector>
 
 class PdfRenderController {
 public:
     explicit PdfRenderController(PdfDocument& document) : document_(document) {}
 
     void ClearCache();
-    HBITMAP RenderPage(int pageIndex, int pixelWidth, int pixelHeight);
-    void SetSettings(const PdfRenderSettings& settings) { settings_ = settings; }
+    void RemoveCachedPage(int pageIndex);
+    bool RenderPage(int pageIndex, int pixelWidth, int pixelHeight,
+                    std::vector<std::uint8_t>& pixels);
+    void SetSettings(const PdfRenderSettings& settings);
     const PdfRenderSettings& Settings() const { return settings_; }
 
 private:
+    struct CacheKey {
+        int page = -1;
+        int width = 0;
+        int height = 0;
+        bool invert = false;
+        int invertStrength = 100;
+        bool operator==(const CacheKey& other) const {
+            return page == other.page && width == other.width && height == other.height &&
+                   invert == other.invert && invertStrength == other.invertStrength;
+        }
+    };
+    struct CacheKeyHash {
+        std::size_t operator()(const CacheKey& key) const noexcept;
+    };
+
     PdfDocument& document_;
-    PdfPageCache cache_;
     PdfRenderSettings settings_{};
+    std::unordered_map<CacheKey, std::vector<std::uint8_t>, CacheKeyHash> cache_;
 };
