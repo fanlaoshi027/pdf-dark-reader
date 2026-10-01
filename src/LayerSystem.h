@@ -27,21 +27,22 @@ public:
     bool MosuanVisible() const { return mosuanVisible_; }
     void SetMosuanActive(bool active) { mosuanActive_ = active; UpdateHitTest(); }
     bool MosuanActive() const { return mosuanActive_; }
-    POINT PdfToView(double pdfX, double pdfY) const;
-    POINT ViewToPdf(int viewX, int viewY) const;
+    POINT PdfToView(double pdfX,double pdfY) const;
+    POINT ViewToPdf(int viewX,int viewY) const;
     void SetTool(MosuanTool tool);
     MosuanTool Tool() const { return tool_; }
     void SetPenEnabled(bool enabled);
     bool PenEnabled() const { return penEnabled_; }
-    bool NativeInkActive() const { return nativeInk_.IsAvailable(); }
+    bool NativeInkActive() const { return nativeInk_.IsAvailable() && nativeInk_.IsEnabled() && tool_ == MosuanTool::Pen; }
     void ClearInk();
     void PaintOverlay(HDC hdc);
 
 private:
-    static LRESULT CALLBACK OverlayProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+    static LRESULT CALLBACK OverlayProc(HWND hwnd,UINT message,WPARAM wParam,LPARAM lParam);
     void UpdateHitTest();
-    void BeginPen(UINT32 pointerId, POINT screenPoint, float pressure);
-    void UpdatePen(UINT32 pointerId, POINT screenPoint, float pressure);
+    void UpdateNativeInkMode();
+    void BeginPen(UINT32 pointerId,POINT screenPoint,float pressure);
+    void UpdatePen(UINT32 pointerId,POINT screenPoint,float pressure);
     void EndPen(UINT32 pointerId);
     void EraseAt(POINT viewPoint);
     void FinishLasso();
@@ -62,6 +63,6 @@ private:
     std::vector<POINT> lassoPoints_;
     std::vector<size_t> selectedStrokes_;
     MosuanTool tool_ = MosuanTool::Pen;
-    COLORREF penColor_ = RGB(35, 75, 150);
+    COLORREF penColor_ = RGB(35,75,150);
     WindowsInkHost nativeInk_;
 };
