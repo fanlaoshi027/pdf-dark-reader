@@ -20,6 +20,7 @@ public:
     bool Initialize(HWND target);
     bool Resize();
     void SetEnabled(bool enabled);
+    void Clear();
     void Shutdown();
     bool IsAvailable() const { return initialized_; }
     bool IsEnabled() const { return enabled_; }
