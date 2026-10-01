@@ -27,6 +27,11 @@ add_executable(PDFDarkReader WIN32
     src/LayerSystem.cpp
     src/WindowsInkHost.h
     src/WindowsInkHost.cpp
+    src/ViewTransform.h
+    src/ViewTransformState.h
+    src/ViewTransformMath.h
+    src/ViewTransformController.h
+    src/ViewTransformController.cpp
     src/MosuanUi.cpp
     src/FavoriteBar.cpp
     src/ToolbarSkin.cpp
