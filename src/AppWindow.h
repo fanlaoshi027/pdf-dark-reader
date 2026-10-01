@@ -6,6 +6,7 @@
 #include "PdfDocument.h"
 #include "InvertSettings.h"
 #include "LayerSystem.h"
+#include "PdfViewState.h"
 
 class AppWindow {
 public:
@@ -40,7 +41,7 @@ private:
     PdfDocument pdf_;
     LayerSystem layers_;
     std::vector<std::uint8_t> pixels_;
-    int pageIndex_ = 0;
+    PdfViewState pdfView_;
     int renderWidth_ = 0;
     int renderHeight_ = 0;
     int scrollY_ = 0;
