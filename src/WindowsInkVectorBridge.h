@@ -9,7 +9,7 @@
 
 class WindowsInkVectorBridge {
 public:
-    bool Begin(UINT32 pointerId, POINT screenPoint, float pressure, double originX, double originY, double scale, std::uint32_t color, float baseWidth);
+    bool Begin(HWND overlay, UINT32 pointerId, POINT screenPoint, float pressure, double originX, double originY, double scale, std::uint32_t color, float baseWidth);
     bool Update(UINT32 pointerId, double originX, double originY, double scale);
     bool End(UINT32 pointerId);
     const VectorStroke& Stroke() const { return stroke_; }
@@ -19,6 +19,7 @@ public:
 private:
     void Append(const InkSample& sample, double originX, double originY, double scale);
 
+    HWND overlay_ = nullptr;
     UINT32 pointerId_ = 0;
     bool active_ = false;
     VectorStroke stroke_;
