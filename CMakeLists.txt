@@ -96,7 +96,6 @@ set(PDF_DARK_READER_SOURCES
     src/WindowsInkVectorBridge.h src/WindowsInkVectorBridge.cpp
 
     src/LayerSystem.h src/LayerSystem.cpp
-    src/WindowsInkHost.h src/WindowsInkHost.cpp
     src/ViewTransform.h
     src/ViewTransformState.h
     src/ViewTransformMath.h
@@ -115,8 +114,8 @@ add_executable(PDFDarkReader WIN32 ${PDF_DARK_READER_SOURCES})
 
 target_include_directories(PDFDarkReader PRIVATE "${PDFIUM_INCLUDE_DIR}")
 target_compile_definitions(PDFDarkReader PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
-target_compile_options(PDFDarkReader PRIVATE /utf-8)
-target_link_libraries(PDFDarkReader PRIVATE "${PDFIUM_LIBRARY}" user32 gdi32 shell32 comdlg32 d3d11 dxgi dcomp)
+target_compile_options(PDFDarkReader PRIVATE /utf-8 /W4)
+target_link_libraries(PDFDarkReader PRIVATE "${PDFIUM_LIBRARY}" user32 gdi32 shell32 comdlg32 d3d11 dxgi)
 
 add_custom_command(TARGET PDFDarkReader POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
