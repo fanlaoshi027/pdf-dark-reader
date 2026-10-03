@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
+#include <windowsx.h>
 
 namespace {
 constexpr wchar_t kClassName[] = L"PDFDarkReaderThumbnailRail";
@@ -14,70 +15,16 @@ constexpr int kThumbH = 108;
 constexpr int kGap = 10;
 constexpr int kLeft = 15;
 constexpr int kTopPadding = 10;
-
 struct Thumbnail { int width = 0; int height = 0; std::vector<std::uint8_t> pixels; };
 struct State { HWND rail = nullptr; HWND parent = nullptr; AppWindow* app = nullptr; int scrollY = 0; int cachedPageCount = -1; std::unordered_map<int, Thumbnail> cache; };
 State g;
-
-void Fill(HDC dc, const RECT& r, COLORREF color) { HBRUSH b=CreateSolidBrush(color); FillRect(dc,&r,b); DeleteObject(b); }
-
-Thumbnail* GetThumbnail(AppWindow& app, int page) {
-    if (g.cachedPageCount != app.pdf().PageCount()) { g.cache.clear(); g.cachedPageCount=app.pdf().PageCount(); g.scrollY=0; }
-    auto it=g.cache.find(page); if(it!=g.cache.end()) return &it->second;
-    float pw=1,ph=1; if(!app.pdf().PageSize(page,pw,ph)) return nullptr;
-    const double scale=std::min((kThumbW-8.0)/pw,(kThumbH-8.0)/ph);
-    Thumbnail t; t.width=(std::max)(1,(int)(pw*scale)); t.height=(std::max)(1,(int)(ph*scale));
-    if(!app.pdf().RenderPage(page,t.width,t.height,t.pixels)) return nullptr;
-    auto [pos,inserted]=g.cache.emplace(page,std::move(t)); return &pos->second;
+void Fill(HDC dc,const RECT&r,COLORREF c){HBRUSH b=CreateSolidBrush(c);FillRect(dc,&r,b);DeleteObject(b);}
+Thumbnail* GetThumbnail(AppWindow& app,int page){if(g.cachedPageCount!=app.pdf().PageCount()){g.cache.clear();g.cachedPageCount=app.pdf().PageCount();g.scrollY=0;}auto it=g.cache.find(page);if(it!=g.cache.end())return&it->second;float pw=1,ph=1;if(!app.pdf().PageSize(page,pw,ph))return nullptr;double s=std::min((kThumbW-8.0)/pw,(kThumbH-8.0)/ph);Thumbnail t;t.width=(std::max)(1,(int)(pw*s));t.height=(std::max)(1,(int)(ph*s));if(!app.pdf().RenderPage(page,t.width,t.height,t.pixels))return nullptr;auto[pos,inserted]=g.cache.emplace(page,std::move(t));return&pos->second;}
+void ResizeRail(){if(!g.rail||!g.parent)return;RECT rc{};GetClientRect(g.parent,&rc);MoveWindow(g.rail,0,PdfThumbnailRail::kTop,PdfThumbnailRail::kWidth,(std::max)(1,(int)rc.bottom-PdfThumbnailRail::kTop),TRUE);}
+LRESULT CALLBACK RailProc(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp){if(msg==WM_NCCREATE){auto*cs=(CREATESTRUCTW*)lp;SetWindowLongPtrW(hwnd,GWLP_USERDATA,(LONG_PTR)cs->lpCreateParams);return TRUE;}auto*app=reinterpret_cast<AppWindow*>(GetWindowLongPtrW(hwnd,GWLP_USERDATA));switch(msg){case WM_ERASEBKGND:return 1;case WM_TIMER:ResizeRail();InvalidateRect(hwnd,nullptr,FALSE);return 0;case WM_MOUSEWHEEL:{const int steps=-(GET_WHEEL_DELTA_WPARAM(wp)/WHEEL_DELTA);RECT rc{};GetClientRect(hwnd,&rc);const int viewport=(std::max)(1,(int)rc.bottom-kHeaderHeight),content=kTopPadding+(app?app->pdf().PageCount():0)*(kThumbH+kGap),maxScroll=(std::max)(0,content-viewport);g.scrollY=std::clamp(g.scrollY+steps*54,0,maxScroll);InvalidateRect(hwnd,nullptr,FALSE);return 0;}case WM_LBUTTONDOWN:{if(!app||!app->pdf().IsOpen())return 0;const int y=GET_Y_LPARAM(lp),row=y-(kHeaderHeight+kTopPadding)+g.scrollY;if(row<0)return 0;const int step=kThumbH+kGap,index=row/step,inside=row%step;if(inside>=kThumbH||index<0||index>=app->pdf().PageCount())return 0;app->SelectPageFromThumbnail(index);SetFocus(app->hwnd());return 0;}case WM_PAINT:{PAINTSTRUCT ps{};HDC dc=BeginPaint(hwnd,&ps);RECT rc{};GetClientRect(hwnd,&rc);Fill(dc,rc,RGB(24,26,31));if(!app||!app->pdf().IsOpen()){EndPaint(hwnd,&ps);return 0;}SetBkMode(dc,TRANSPARENT);SetTextColor(dc,RGB(190,194,202));RECT title{0,4,kThumbW+30,kHeaderHeight};DrawTextW(dc,L"PDF",-1,&title,DT_CENTER|DT_VCENTER|DT_SINGLELINE);const int count=app->pdf().PageCount(),viewport=(std::max)(1,(int)rc.bottom-kHeaderHeight),content=kTopPadding+count*(kThumbH+kGap),maxScroll=(std::max)(0,content-viewport);g.scrollY=std::clamp(g.scrollY,0,maxScroll);const int first=(std::max)(0,(g.scrollY-kTopPadding)/(kThumbH+kGap)),last=(std::min)(count-1,(g.scrollY+viewport)/(kThumbH+kGap)+1);for(int page=first;page<=last;++page){int y=kHeaderHeight+kTopPadding+page*(kThumbH+kGap)-g.scrollY;if(y>rc.bottom||y+kThumbH<kHeaderHeight)continue;RECT card{kLeft,y,kLeft+kThumbW,y+kThumbH};bool active=page==app->pageIndex();Fill(dc,card,active?RGB(49,55,67):RGB(33,36,42));HPEN pen=CreatePen(PS_SOLID,active?2:1,active?RGB(100,150,235):RGB(62,66,74));HGDIOBJ op=SelectObject(dc,pen),ob=SelectObject(dc,GetStockObject(NULL_BRUSH));Rectangle(dc,card.left,card.top,card.right,card.bottom);SelectObject(dc,ob);SelectObject(dc,op);DeleteObject(pen);Thumbnail*t=GetThumbnail(*app,page);if(t&&!t->pixels.empty()){BITMAPINFO bmi{};bmi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);bmi.bmiHeader.biWidth=t->width;bmi.bmiHeader.biHeight=-t->height;bmi.bmiHeader.biPlanes=1;bmi.bmiHeader.biBitCount=32;bmi.bmiHeader.biCompression=BI_RGB;int dx=card.left+(kThumbW-t->width)/2,dy=card.top+4;StretchDIBits(dc,dx,dy,t->width,t->height,0,0,t->width,t->height,t->pixels.data(),&bmi,DIB_RGB_COLORS,SRCCOPY);}wchar_t n[16]{};wsprintfW(n,L"%d",page+1);SetTextColor(dc,RGB(175,180,190));RECT label{card.left,card.bottom-18,card.right,card.bottom};DrawTextW(dc,n,-1,&label,DT_CENTER|DT_VCENTER|DT_SINGLELINE);}EndPaint(hwnd,&ps);return 0;}case WM_DESTROY:KillTimer(hwnd,kTimer);return 0;}return DefWindowProcW(hwnd,msg,wp,lp);}
+LRESULT CALLBACK CbtProc(int code,WPARAM wp,LPARAM){if(code==HCBT_ACTIVATE){HWND hwnd=(HWND)wp;wchar_t cls[128]{};GetClassNameW(hwnd,cls,128);if(lstrcmpW(cls,L"PDFDarkReaderWindow")==0)PdfThumbnailRail::Ensure(hwnd);}return CallNextHookEx(nullptr,code,wp,0);}HHOOK g_hook=nullptr;struct HookInstaller{HookInstaller(){g_hook=SetWindowsHookExW(WH_CBT,CbtProc,nullptr,GetCurrentThreadId());}~HookInstaller(){if(g_hook)UnhookWindowsHookEx(g_hook);}}g_installer;
 }
-
-void ResizeRail() {
-    if(!g.rail||!g.parent) return; RECT rc{}; GetClientRect(g.parent,&rc);
-    MoveWindow(g.rail,0,PdfThumbnailRail::kTop,PdfThumbnailRail::kWidth,(std::max)(1,(int)rc.bottom-PdfThumbnailRail::kTop),TRUE);
-}
-
-LRESULT CALLBACK RailProc(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp) {
-    switch(msg) {
-    case WM_NCCREATE: {
-        auto* cs=(CREATESTRUCTW*)lp; SetWindowLongPtrW(hwnd,GWLP_USERDATA,(LONG_PTR)cs->lpCreateParams); return TRUE;
-    }
-    }
-    auto* app=reinterpret_cast<AppWindow*>(GetWindowLongPtrW(hwnd,GWLP_USERDATA));
-    switch(msg) {
-    case WM_ERASEBKGND: return 1;
-    case WM_TIMER: ResizeRail(); InvalidateRect(hwnd,nullptr,FALSE); return 0;
-    case WM_MOUSEWHEEL: {
-        const int steps=-(GET_WHEEL_DELTA_WPARAM(wp)/WHEEL_DELTA); RECT rc{}; GetClientRect(hwnd,&rc);
-        const int viewport=(std::max)(1,(int)rc.bottom-kHeaderHeight); const int content=kTopPadding+(app?app->pdf().PageCount():0)*(kThumbH+kGap);
-        const int maxScroll=(std::max)(0,content-viewport); g.scrollY=std::clamp(g.scrollY+steps*54,0,maxScroll); InvalidateRect(hwnd,nullptr,FALSE); return 0;
-    }
-    case WM_LBUTTONDOWN: {
-        if(!app||!app->pdf().IsOpen()) return 0; const int y=GET_Y_LPARAM(lp); const int row=y-(kHeaderHeight+kTopPadding)+g.scrollY; if(row<0)return 0;
-        const int step=kThumbH+kGap,index=row/step,inside=row%step; if(inside>=kThumbH||index<0||index>=app->pdf().PageCount())return 0;
-        app->SelectPageFromThumbnail(index); SetFocus(app->hwnd()); return 0;
-    }
-    case WM_PAINT: {
-        PAINTSTRUCT ps{}; HDC dc=BeginPaint(hwnd,&ps); RECT rc{}; GetClientRect(hwnd,&rc); Fill(dc,rc,RGB(24,26,31));
-        if(!app||!app->pdf().IsOpen()){EndPaint(hwnd,&ps);return 0;}
-        SetBkMode(dc,TRANSPARENT); SetTextColor(dc,RGB(190,194,202)); RECT title{0,4,kThumbW+30,kHeaderHeight}; DrawTextW(dc,L"PDF",-1,&title,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
-        const int count=app->pdf().PageCount(); const int viewport=(std::max)(1,(int)rc.bottom-kHeaderHeight); const int content=kTopPadding+count*(kThumbH+kGap); const int maxScroll=(std::max)(0,content-viewport); g.scrollY=std::clamp(g.scrollY,0,maxScroll);
-        const int first=(std::max)(0,(g.scrollY-kTopPadding)/(kThumbH+kGap)); const int last=(std::min)(count-1,(g.scrollY+viewport)/(kThumbH+kGap)+1);
-        for(int page=first;page<=last;++page){int y=kHeaderHeight+kTopPadding+page*(kThumbH+kGap)-g.scrollY;if(y>rc.bottom||y+kThumbH<kHeaderHeight)continue;RECT card{kLeft,y,kLeft+kThumbW,y+kThumbH};bool active=page==app->pageIndex();Fill(dc,card,active?RGB(49,55,67):RGB(33,36,42));HPEN pen=CreatePen(PS_SOLID,active?2:1,active?RGB(100,150,235):RGB(62,66,74));HGDIOBJ op=SelectObject(dc,pen),ob=SelectObject(dc,GetStockObject(NULL_BRUSH));Rectangle(dc,card.left,card.top,card.right,card.bottom);SelectObject(dc,ob);SelectObject(dc,op);DeleteObject(pen);Thumbnail*t=GetThumbnail(*app,page);if(t&&!t->pixels.empty()){BITMAPINFO bmi{};bmi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);bmi.bmiHeader.biWidth=t->width;bmi.bmiHeader.biHeight=-t->height;bmi.bmiHeader.biPlanes=1;bmi.bmiHeader.biBitCount=32;bmi.bmiHeader.biCompression=BI_RGB;int dx=card.left+(kThumbW-t->width)/2,dy=card.top+4;StretchDIBits(dc,dx,dy,t->width,t->height,0,0,t->width,t->height,t->pixels.data(),&bmi,DIB_RGB_COLORS,SRCCOPY);}wchar_t n[16]{};wsprintfW(n,L"%d",page+1);SetTextColor(dc,RGB(175,180,190));RECT label{card.left,card.bottom-18,card.right,card.bottom};DrawTextW(dc,n,-1,&label,DT_CENTER|DT_VCENTER|DT_SINGLELINE);}
-        EndPaint(hwnd,&ps); return 0;
-    }
-    case WM_DESTROY: KillTimer(hwnd,kTimer); return 0;
-    }
-    return DefWindowProcW(hwnd,msg,wp,lp);
-}
-
-LRESULT CALLBACK CbtProc(int code,WPARAM wp,LPARAM) {
-    if(code==HCBT_ACTIVATE){HWND hwnd=(HWND)wp; wchar_t cls[128]{};GetClassNameW(hwnd,cls,128);if(lstrcmpW(cls,L"PDFDarkReaderWindow")==0)PdfThumbnailRail::Ensure(hwnd);}return CallNextHookEx(nullptr,code,wp,0);
-}
-HHOOK g_hook=nullptr;
-struct HookInstaller { HookInstaller(){ g_hook=SetWindowsHookExW(WH_CBT,CbtProc,nullptr,GetCurrentThreadId()); } ~HookInstaller(){if(g_hook)UnhookWindowsHookEx(g_hook);} } g_installer;
-}
-
-void PdfThumbnailRail::Install() { if(!g_hook) g_hook=SetWindowsHookExW(WH_CBT,CbtProc,nullptr,GetCurrentThreadId()); }
+void PdfThumbnailRail::Install(){if(!g_hook)g_hook=SetWindowsHookExW(WH_CBT,CbtProc,nullptr,GetCurrentThreadId());}
 void PdfThumbnailRail::Ensure(HWND parent){if(!parent)return;if(g.rail&&IsWindow(g.rail)){ResizeRail();return;}g.parent=parent;g.app=reinterpret_cast<AppWindow*>(GetWindowLongPtrW(parent,GWLP_USERDATA));WNDCLASSEXW wc{};wc.cbSize=sizeof(wc);wc.hInstance=GetModuleHandleW(nullptr);wc.lpfnWndProc=RailProc;wc.lpszClassName=kClassName;wc.hCursor=LoadCursorW(nullptr,IDC_ARROW);wc.hbrBackground=nullptr;static bool registered=false;if(!registered){RegisterClassExW(&wc);registered=true;}g.rail=CreateWindowExW(0,kClassName,L"",WS_CHILD|WS_VISIBLE,0,kTop,kWidth,500,parent,nullptr,wc.hInstance,g.app);ResizeRail();SetTimer(g.rail,kTimer,250,nullptr);InvalidateRect(g.rail,nullptr,FALSE);}
 void PdfThumbnailRail::Resize(HWND parent){if(parent==g.parent)ResizeRail();}
 void PdfThumbnailRail::Refresh(HWND parent){if(parent!=g.parent)return;InvalidateRect(g.rail,nullptr,FALSE);}
