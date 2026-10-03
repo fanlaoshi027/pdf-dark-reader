@@ -2,7 +2,7 @@ name: Windows Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, historical-exe-20260928 ]
   workflow_dispatch:
 
 jobs:
@@ -46,5 +46,5 @@ jobs:
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
-          name: PDFDarkReader-Windows-x64
+          name: PDFDarkReader-Windows-x64-${{ github.ref_name }}
           path: artifacts/
