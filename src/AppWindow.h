@@ -42,6 +42,7 @@ private:
     LayerSystem layers_;
     std::vector<std::uint8_t> pixels_;
     PdfViewState pdfView_;
+    int pageIndex_ = 0;
     int renderWidth_ = 0;
     int renderHeight_ = 0;
     int scrollY_ = 0;
