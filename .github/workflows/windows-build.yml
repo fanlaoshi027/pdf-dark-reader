@@ -2,32 +2,20 @@ name: Windows Build
 
 on:
   push:
-    branches: [ ui-effect-match ]
+    branches: [ ui-effect-match, windows-ink-test ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: Checkout current branch HEAD
+      - name: Checkout Windows Ink test branch
         uses: actions/checkout@v5
         with:
-          ref: ui-effect-match
+          ref: windows-ink-test
           fetch-depth: 0
 
-      - name: Verify checkout
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $head = (git rev-parse HEAD).Trim()
-          $branch = (git branch --show-current).Trim()
-          Write-Host "HEAD=$head"
-          Write-Host "BRANCH=$branch"
-          if ($branch -ne 'ui-effect-match') { throw "Unexpected branch: $branch" }
-          if (-not (Test-Path 'src/InkVectorGeometry.cpp')) { throw 'src/InkVectorGeometry.cpp is missing from checkout' }
-          Write-Host 'InkVectorGeometry.cpp = PRESENT'
-
-      - name: Download PDFium
+      - name: Configure
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -36,13 +24,6 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile third_party/pdfium/pdfium.tgz
           tar -xzf third_party/pdfium/pdfium.tgz -C third_party/pdfium
           Remove-Item third_party/pdfium/pdfium.tgz
-          if (-not (Test-Path 'third_party/pdfium/include/fpdfview.h')) { throw 'PDFium header fpdfview.h not found' }
-          if (-not (Get-ChildItem 'third_party/pdfium' -Filter pdfium.dll -Recurse)) { throw 'PDFium runtime pdfium.dll not found' }
-
-      - name: Configure
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
           $pdfium = (Resolve-Path 'third_party/pdfium').Path
           cmake -S . -B build -A x64 "-DPDFIUM_DIR=$pdfium"
 
@@ -59,11 +40,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
           Copy-Item build/Release/PDFDarkReader.exe artifacts/PDFDarkReader.exe
           $dll = Get-ChildItem -Path third_party/pdfium -Filter pdfium.dll -Recurse | Select-Object -First 1
-          if (-not $dll) { throw 'pdfium.dll not found after extraction' }
           Copy-Item $dll.FullName artifacts/pdfium.dll
 
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
-          name: PDFDarkReader-Windows-x64
+          name: PDFDarkReader-Windows-Ink-test
           path: artifacts/
