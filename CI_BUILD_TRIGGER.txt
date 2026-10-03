@@ -1,0 +1,1 @@
+Fresh Windows build trigger after adding WindowsInkVectorBridge.cpp to CMake.
