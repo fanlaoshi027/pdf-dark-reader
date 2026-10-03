@@ -21,6 +21,7 @@ public:
     const PdfDocument& pdf() const noexcept { return pdf_; }
     int pageIndex() const noexcept { return pageIndex_; }
     bool invertEnabled() const noexcept { return invert_; }
+    const InvertSettings& invertSettings() const noexcept { return invertSettings_; }
 private:
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
     LRESULT HandleMessage(UINT message, WPARAM wParam, LPARAM lParam);
