@@ -28,7 +28,9 @@ set(PDF_DARK_READER_SOURCES
  src/WindowsInkVectorBridge.h src/WindowsInkVectorBridge.cpp
  src/LayerSystem.h src/LayerSystem.cpp src/WindowsInkHost.h src/WindowsInkHost.cpp src/ViewTransform.h src/ViewTransformState.h src/ViewTransformMath.h
  src/ViewTransformController.h src/ViewTransformController.cpp src/ZoomController.h src/ZoomController.cpp src/PanController.h src/PanController.cpp
- src/PageNavigation.h src/PageNavigation.cpp src/PdfViewport.h src/PdfViewport.cpp src/MosuanUi.cpp src/FavoriteBar.cpp src/ToolbarSkin.cpp src/TopToolbar.cpp
+ src/PageNavigation.h src/PageNavigation.cpp src/PdfViewport.h src/PdfViewport.cpp
+ src/PdfThumbnailRail.h src/PdfThumbnailRail.cpp
+ src/MosuanUi.cpp src/FavoriteBar.cpp src/ToolbarSkin.cpp src/TopToolbar.cpp
 )
 foreach(source IN LISTS PDF_DARK_READER_SOURCES)
  if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
