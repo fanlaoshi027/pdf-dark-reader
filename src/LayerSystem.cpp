@@ -14,7 +14,7 @@ constexpr float kMinPressure = 0.08f;
 constexpr float kMaxPressure = 1.00f;
 constexpr float kMinWidthPdf = 0.70f;
 constexpr float kMaxWidthPdf = 2.45f;
-constexpr double kMinPointDistance = 0.22;
+constexpr double kMinPointDistance = 0.10;
 constexpr int kEraserRadiusPx = 14;
 struct ViewPoint { double x; double y; float pressure; };
 float ClampPressureLocal(float p){if(!std::isfinite(p)||p<=0.0f)return 0.5f;return std::clamp(p,kMinPressure,kMaxPressure);}
