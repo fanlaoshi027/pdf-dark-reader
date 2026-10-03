@@ -7,11 +7,34 @@
 #include "InvertSettings.h"
 #include "LayerSystem.h"
 #include "PdfViewState.h"
+#include "PdfThumbnailRail.h"
 
 class AppWindow {
 public:
     bool Create(HINSTANCE instance);
     int Run();
+
+    // Public bridge used by the PDF thumbnail rail. The actual rendering
+    // pipeline remains inside AppWindow; thumbnails never duplicate it.
+    void SelectPageFromThumbnail(int page) {
+        if (!pdf_.IsOpen()) return;
+        if (page < 0 || page >= pdf_.PageCount()) return;
+        pageIndex_ = page;
+        scrollY_ = 0;
+        RenderCurrentPage();
+        Refresh();
+    }
+
+    void Refresh() noexcept {
+        InvalidateRect(hwnd_, nullptr, FALSE);
+        PdfThumbnailRail::Refresh(hwnd_);
+    }
+
+    HWND hwnd() const noexcept { return hwnd_; }
+    PdfDocument& pdf() noexcept { return pdf_; }
+    const PdfDocument& pdf() const noexcept { return pdf_; }
+    int pageIndex() const noexcept { return pageIndex_; }
+    bool invertEnabled() const noexcept { return invert_; }
 
 private:
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
