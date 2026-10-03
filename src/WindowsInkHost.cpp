@@ -136,8 +136,10 @@ bool WindowsInkHost::Resize() {
 
 void WindowsInkHost::SetEnabled(bool enabled) {
     if (!initialized_ || !dcompRoot_ || !dcompDevice_) return;
+    // IDCompositionVisual3 owns SetOpacity in current Windows SDKs. The
+    // native InkPresenter itself remains attached to the visual tree here;
+    // keep this state change independent of SDK-specific visual extensions.
     enabled_ = enabled;
-    dcompRoot_->SetOpacity(enabled ? 1.0f : 0.0f);
     dcompDevice_->Commit();
 }
 
