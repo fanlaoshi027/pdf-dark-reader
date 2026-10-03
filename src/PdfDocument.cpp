@@ -71,23 +71,25 @@ bool PdfDocument::RenderPage(int index, int width, int height, std::vector<std::
     page_ = FPDF_LoadPage(document_, index);
     if (!page_) return false;
 
-    // Render at 2x and downsample. This is intentional supersampling: it makes
-    // thin Chinese strokes, math symbols, fraction bars and diagonal lines
-    // much cleaner than rendering directly at the final display resolution.
-    const int renderW = width * 2;
-    const int renderH = height * 2;
-    std::vector<std::uint8_t> hiRes(static_cast<size_t>(renderW) * static_cast<size_t>(renderH) * 4u);
+    // Tiny renders are thumbnail requests. Rendering them at 2x and then
+    // downsampling makes opening a document needlessly expensive, especially
+    // for a long PDF. Use direct PDFium rendering for thumbnail-sized images.
+    const bool thumbnail = width <= 128 && height <= 160;
+    const int renderW = thumbnail ? width : width * 2;
+    const int renderH = thumbnail ? height : height * 2;
+    std::vector<std::uint8_t> rendered(static_cast<size_t>(renderW) * static_cast<size_t>(renderH) * 4u);
 
-    FPDF_BITMAP bitmap = FPDFBitmap_CreateEx(renderW, renderH, FPDFBitmap_BGRA, hiRes.data(), renderW * 4);
+    FPDF_BITMAP bitmap = FPDFBitmap_CreateEx(renderW, renderH, FPDFBitmap_BGRA, rendered.data(), renderW * 4);
     if (!bitmap) return false;
     FPDFBitmap_FillRect(bitmap, 0, 0, renderW, renderH, 0xFFFFFFFF);
-
-    // Keep PDFium's normal anti-aliasing and explicitly request high-quality
-    // image/path halftoning. Do NOT use NO_SMOOTHTEXT / NO_SMOOTHIMAGE.
     const int flags = FPDF_ANNOT | FPDF_RENDER_FORCEHALFTONE;
     FPDF_RenderPageBitmap(bitmap, page_, 0, 0, renderW, renderH, 0, flags);
     FPDFBitmap_Destroy(bitmap);
 
-    Downsample2x(hiRes, renderW, renderH, pixels, width, height);
+    if (thumbnail) {
+        pixels = std::move(rendered);
+    } else {
+        Downsample2x(rendered, renderW, renderH, pixels, width, height);
+    }
     return true;
 }
