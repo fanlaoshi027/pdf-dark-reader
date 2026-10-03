@@ -30,11 +30,20 @@ bool WindowsInkVectorBridge::Begin(HWND overlay, UINT32 pointerId, POINT screenP
 bool WindowsInkVectorBridge::Update(UINT32 pointerId, double originX, double originY, double scale) {
     if (!active_ || pointerId != pointerId_ || !overlay_) return false;
 
-    std::vector<InkSample> history;
-    if (!history_.Read(pointerId_, history) || history.empty()) return false;
+    UINT32 count = 0;
+    if (!GetPointerPenInfoHistory(pointerId_, &count, nullptr) || count == 0) return false;
+
+    std::vector<POINTER_PEN_INFO> history(count);
+    if (!GetPointerPenInfoHistory(pointerId_, &count, history.data()) || count == 0) return false;
 
     bool appended = false;
-    for (auto sample : history) {
+    for (const auto& info : history) {
+        InkSample sample{};
+        sample.x = static_cast<double>(info.pointerInfo.ptPixelLocation.x);
+        sample.y = static_cast<double>(info.pointerInfo.ptPixelLocation.y);
+        sample.pressure = std::clamp(static_cast<float>(info.pressure) / 1024.0f, 0.0f, 1.0f);
+        sample.timestamp = static_cast<double>(info.pointerInfo.dwTime) / 1000.0;
+
         if (!samples_.empty() && sample.timestamp != 0 && samples_.back().timestamp != 0 &&
             sample.timestamp <= samples_.back().timestamp) {
             continue;
