@@ -25,6 +25,7 @@ set(PDF_DARK_READER_SOURCES
  src/InkStrokeJoin.h src/InkStrokeJoin.cpp src/InkVectorGeometry.h src/InkVectorGeometry.cpp src/InkVectorRenderer.h
  src/InkRenderController.h src/InkRenderController.cpp src/InkStrokeSession.h src/InkStrokeSession.cpp src/InkInputAdapter.h src/InkInputAdapter.cpp
  src/InkStrokeStore.h src/InkStrokeStore.cpp src/InkPointerRouter.h src/InkPointerRouter.cpp src/InkPointerSample.h src/InkPointerHistory.h src/InkPointerHistory.cpp
+ src/WindowsInkVectorBridge.h src/WindowsInkVectorBridge.cpp
  src/LayerSystem.h src/LayerSystem.cpp src/WindowsInkHost.h src/WindowsInkHost.cpp src/ViewTransform.h src/ViewTransformState.h src/ViewTransformMath.h
  src/ViewTransformController.h src/ViewTransformController.cpp src/ZoomController.h src/ZoomController.cpp src/PanController.h src/PanController.cpp
  src/PageNavigation.h src/PageNavigation.cpp src/PdfViewport.h src/PdfViewport.cpp src/MosuanUi.cpp src/FavoriteBar.cpp src/ToolbarSkin.cpp src/TopToolbar.cpp
