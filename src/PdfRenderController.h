@@ -14,6 +14,10 @@ public:
     void RemoveCachedPage(int pageIndex);
     bool RenderPage(int pageIndex, int pixelWidth, int pixelHeight,
                     std::vector<std::uint8_t>& pixels);
+    bool RenderPage(int pageIndex, int pixelWidth, int pixelHeight) {
+        std::vector<std::uint8_t> scratch;
+        return RenderPage(pageIndex, pixelWidth, pixelHeight, scratch);
+    }
     void SetSettings(const PdfRenderSettings& settings);
     const PdfRenderSettings& Settings() const { return settings_; }
 
