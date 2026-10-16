@@ -2,7 +2,7 @@ name: Windows Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, v1-clean-reader ]
   workflow_dispatch:
 
 jobs:
