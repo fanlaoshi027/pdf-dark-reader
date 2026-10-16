@@ -7,7 +7,7 @@
 
 namespace {
 constexpr wchar_t kClassName[] = L"PDFDarkReaderWindow";
-constexpr wchar_t kTitle[] = L"Mosuan 墨算";
+constexpr wchar_t kTitle[] = L"PDF Dark Reader — 护眼 PDF";
 constexpr int kToolbarHeight = 70;
 constexpr UINT WM_MOSUAN_NOTE_VIS = WM_APP + 31;
 constexpr UINT WM_MOSUAN_BG_VIS = WM_APP + 32;
@@ -17,8 +17,13 @@ inline int YParam(LPARAM lp) { return static_cast<int>(static_cast<short>(HIWORD
 
 bool AppWindow::Create(HINSTANCE instance) {
     instance_ = instance;
-    invertSettings_.strength = 0.90f;
-    invertSettings_.backgroundR = invertSettings_.backgroundG = invertSettings_.backgroundB = 26;
+    invertSettings_.strength = 1.0f;
+    invertSettings_.backgroundR = 32;
+    invertSettings_.backgroundG = 33;
+    invertSettings_.backgroundB = 36;
+    invertSettings_.foregroundR = 224;
+    invertSettings_.foregroundG = 224;
+    invertSettings_.foregroundB = 224;
     WNDCLASSEXW wc{};
     wc.cbSize = sizeof(wc); wc.hInstance = instance; wc.lpfnWndProc = &AppWindow::WindowProc;
     wc.lpszClassName = kClassName; wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
